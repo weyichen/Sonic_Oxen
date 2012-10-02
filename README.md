@@ -12,9 +12,11 @@ The movement of wires attached to ECG monitors, which causes patient discomfort 
 Existing solutions
 -----------------
 [lifesync corp wireless ECGs](http://www.lifesynccorp.com/products/wireless-system.html)
+
 Bulky to be worn for patient - probably impossible for children, bluetooth so less secure, low range, energy intensive
 
 There are other lighter and wearable options with only one lead.
+
 [Developed at U Mich](http://web.eecs.umich.edu/~prabal/teaching/eecs598-w10/readings/PCB+06.pdf)
 
 Our Method
