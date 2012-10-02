@@ -11,16 +11,16 @@ The movement of wires attached to ECG monitors, which causes patient discomfort 
 
 Existing solutions
 -----------------
-[lifesync corp wireless ECGs]: <http://www.lifesynccorp.com/products/wireless-system.html>
+[lifesync corp wireless ECGs](http://www.lifesynccorp.com/products/wireless-system.html)
 Bulky to be worn for patient - probably impossible for children, bluetooth so less secure, low range, energy intensive
 
 There are other lighter and wearable options with only one lead.
-[Developed at U Mich]: <http://web.eecs.umich.edu/~prabal/teaching/eecs598-w10/readings/PCB+06.pdf>
+[Developed at U Mich](http://web.eecs.umich.edu/~prabal/teaching/eecs598-w10/readings/PCB+06.pdf)
 
 Our Method
 ----------
-Use wireless modules to transmit ECG data in real-time from electrodes attached to patient’s body to a signal processor linked to a computer terminal. Reduce the amount of wires to minimize noise. A wearable design also
+Use wireless modules to transmit ECG data in real-time from electrodes attached to patient’s body to a signal processor linked to a computer terminal. Reduce the amount of wires to minimize noise. A wearable design also.
 
 Other Applications
 ------------------
-Heart monitor for mountaineers, plus other situations where wireless system would be more convenient
+Heart monitor for mountaineers, plus other situations where wireless system would be more convenient.
