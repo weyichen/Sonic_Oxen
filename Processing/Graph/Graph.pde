@@ -19,7 +19,7 @@
  
  void setup () {
  // set the window size:
- size(400, 300);        
+ size(800, 600);        
  
  // List all the available serial ports
  println(Serial.list());
@@ -43,13 +43,34 @@
  if (inString != null) {
  // trim off any whitespace:
  inString = trim(inString);
- // convert to an int and map to the screen height:
- float inByte = float(inString); 
- inByte = map(inByte, 0, 1023, 0, height);
  
- // draw the line:
+ // split string of values into an array
+ String[] list = split(inString, ',');
+ 
+ // convert to an int and map to the screen height:
+ float inByte0 = int(list[0]);
+ float inByte1 = int(list[1]);
+ float inByte2 = int(list[2]);
+ float inByte3 = int(list[3]);
+ 
+ inByte0 = map(inByte0, 0, 1023, 0, height);
+ inByte1 = map(inByte1, 0, 1023, 0, height);
+ inByte2 = map(inByte2, 0, 1023, 0, height);
+ inByte3 = map(inByte3, 0, 1023, 0, height);
+ 
+ // draw the 1st point:
+ stroke(255,255,255);
+ point(xPos, height - inByte0);
+ 
+ // draw the 2nd point
+ stroke(25,51,0);
+ rect(xPos, height - inByte1, 4, 4);
+ 
  stroke(127,34,255);
- line(xPos, height, xPos, height - inByte);
+ ellipse(xPos, height - inByte2, 4, 4);
+ 
+ stroke(0,0,255);
+ line(xPos, height - inByte3 - 4, xPos, height - inByte3 + 4);
  
  // at the edge of the screen, go back to the beginning:
  if (xPos >= width) {
