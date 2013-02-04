@@ -1,3 +1,13 @@
+#define FASTADC 1
+
+// defines for setting and clearing register bits
+#ifndef cbi
+#define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
+#endif
+#ifndef sbi
+#define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
+#endif
+
 /*
   Analog input, analog output, serial output
  
@@ -27,13 +37,18 @@ const int analogInPin1 = A1;
 const int analogInPin2 = A2;
 const int analogInPin3 = A3;
 
-int sensorValue0 = 0;        // value read from the pin 0
-int sensorValue1 = 0;        // value read from the pin 0
-int sensorValue2 = 0;        // value read from the pin 0
-int sensorValue3 = 0;        // value read from the pin 0
+int sensorValue0, sensorValue1, sensorValue2, sensorValue3;
  
  void setup () {
-   Serial.begin(14400);
+   Serial.begin(115200);
+   
+  #if FASTADC
+    // set prescale to 16
+    sbi(ADCSRA,ADPS2) ;
+    cbi(ADCSRA,ADPS1) ;
+    cbi(ADCSRA,ADPS0) ;
+  #endif
+
  }
 
   void loop() {
@@ -43,17 +58,19 @@ int sensorValue3 = 0;        // value read from the pin 0
     sensorValue2 = analogRead(analogInPin2);
     sensorValue3 = analogRead(analogInPin3);
     
-    // Put values out to graph                  
+    // Put values out to graph
+    
+    
     Serial.print(sensorValue0);      
-    Serial.print("; " );                       
+    Serial.print(",");                       
     Serial.print(sensorValue1);  
-    Serial.print("; ");                       
+    Serial.print(",");                       
     Serial.print(sensorValue2);  
-    Serial.print("; ");                       
+    Serial.print(",");                       
     Serial.println(sensorValue3);
     
     // wait 2 milliseconds before the next loop
     // for the analog-to-digital converter to settle
     // after the last reading:
-    delay(2);             
+    delayMicroseconds(20);             
   }
