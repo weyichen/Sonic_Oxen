@@ -1,27 +1,31 @@
-const int LED = 13;
-int start = 0;
+int step = 0;
 int text[10];
 
 void setup() {
   Serial.begin(9600);
-  pinMode(LED, OUTPUT);
-  digitalWrite(LED,LOW);
 }
 
 void loop() {
-  if (!start) {
-    delay(1000);
-    start++;
+  if (!step) {
+    delay(2000);
     Serial.print("+++");
+    delay(2000);
+    Serial.println();
   }
   if (Serial.available() >= 3) {
-    digitalWrite(LED, HIGH);
-    delay(2000);
-    digitalWrite(LED, LOW);
+    delay(1000);
     for (int i = 0; Serial.available() && i < 10; i++) {
       text[i] = Serial.read();
       Serial.write(text[i]);
+      if (i && text[i] == 'K' && text[i - 1] == 'O') {
+        step++;
+        if (step == 1) {
+          Serial.print("ATBD7");
+        }
+        else if (step == 2) {
+          Serial.print("ATWR");
+        }
+      }
     }
-    Serial.print("ATBD 7");
   }
 }
