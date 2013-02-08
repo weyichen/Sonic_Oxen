@@ -7,7 +7,7 @@ float r = 0.;
 
 void setup() {
  // initialize serial communications at 9600 bps:
- Serial.begin(9600); 
+ Serial.begin(115200); 
 }
 
 void loop() {
@@ -18,16 +18,12 @@ void loop() {
  a=80*sin(r)+100;
  b=100*sin(r)+100;
   
- Serial.print(int(x));
- Serial.print(",");
- Serial.print(int(y));
- Serial.print(","); 
- Serial.print(int(z));
- Serial.print(","); 
- Serial.print(int(a));
- Serial.print(","); 
- Serial.println(int(b));
+ Serial.write(int(x));
+ Serial.write(int(y));
+ Serial.write(int(z));
+ Serial.write(int(a));
+ Serial.write(int(b));
 
  // wait 2 milliseconds before the next loop
- delayMicroseconds(50);                     
+ delayMicroseconds(100);                     
 }
