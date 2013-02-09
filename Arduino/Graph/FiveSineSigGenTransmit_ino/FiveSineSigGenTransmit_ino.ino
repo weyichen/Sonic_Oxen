@@ -7,7 +7,7 @@ float r = 0.;
 
 void setup() {
  // initialize serial communications at 9600 bps:
- Serial.begin(115200); 
+ Serial.begin(9600); 
 }
 
 void loop() {
@@ -25,5 +25,5 @@ void loop() {
  Serial.write(int(b));
 
  // wait 2 milliseconds before the next loop
- delayMicroseconds(100);                     
+ delayMicroseconds(50);                     
 }
