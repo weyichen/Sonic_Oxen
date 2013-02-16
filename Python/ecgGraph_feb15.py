@@ -54,7 +54,7 @@ while time < 200:
         # convert to signed long
         if (height >= 0x80000000):
             height = height - 0x100000000
-        #print time, height
+        # print time, numpy.long(height)
         extend(lines[i], time, height) 
     
     draw()
