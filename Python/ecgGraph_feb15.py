@@ -4,7 +4,7 @@ import numpy
 import serial
 from time import sleep
 
-ser = serial.Serial(3, baudrate=115200, timeout=1)
+ser = serial.Serial(4, baudrate=115200, timeout=1)
 ser.setRTS(True) #?
 ser.setRTS(False) #?
 
