@@ -2,6 +2,7 @@ from pylab import *
 import numpy
 import serial
 from time import *
+from collections import deque
 
 ion() # "interactive mode" on
 
@@ -45,36 +46,37 @@ ser.setRTS(True) #?
 ser.setRTS(False) #?
 
 # array to read in 4 bytes at a time
-bytes = bytearray(4)
-
+data = deque()
 # amount of time in seconds to plot
 while time < 5000:
     
     # plot 5 channels, up to 4-byte integers (long)
-    if ser.inWaiting() > 20:        
-        for i in range(channels):
-        
-            # readinto will automatically try to read # of bytes to fill array
-            ser.readinto(bytes)
-            # construct y value
-            height = (bytes[0] << 24) + (bytes[1] << 16) + (bytes[2] << 8) + bytes[3]
-            
-            # convert to signed long
-            if (height >= 0x80000000):
-                height = height - 0x100000000
-                
-            samples[pos, i] = numpy.long(height)
+	while ser.inWaiting() > 4:
+		data.append(bytearray(4))
+		ser.readinto(data[-1])
 
-        #if (time % 2 == 0):
-        extend(pos)
+	if len(data) > channels:
+		for i in range(channels):
+			bytes = data.popleft()
+			# construct y value
+			height = (bytes[0] << 24) + (bytes[1] << 16) + (bytes[2] << 8) + bytes[3]
+			
+			# convert to signed long
+			if (height >= 0x80000000):
+				height = height - 0x100000000
+				
+			samples[pos, i] = numpy.long(height)
 
-        pos = (pos + 1)
-        if (pos == BUF_LEN):
-            pos = 0
-            #times = times + period
-            
-        draw()
-        time += 1
+		#if (time % 2 == 0):
+		extend(pos)
+
+		pos = (pos + 1)
+		if (pos == BUF_LEN):
+			pos = 0
+			#times = times + period
+			
+		draw()
+		time += 1
 
 print ser.inWaiting()
 ser.close
