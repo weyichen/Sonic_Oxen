@@ -24,6 +24,7 @@ channels = 5
 # Y values
 samples = numpy.zeros([BUF_LEN, channels])
 
+# set graph limits for each channel
 lines = plot(times, samples)
 for i in range(channels) :
     lines[i].axes.set_ylim(-height, height)
@@ -43,13 +44,20 @@ ser = serial.Serial(2, baudrate=57600, timeout=1)
 ser.setRTS(True) #?
 ser.setRTS(False) #?
 
+# array to read in 4 bytes at a time
+bytes = bytearray(4)
+
+# amount of time in seconds to plot
 while time < 5000:
     
     # plot 5 channels, up to 4-byte integers (long)
     if ser.inWaiting() > 20:        
         for i in range(channels):
-            bytes = ser.read(4)
-            height = (ord(bytes[0]) << 24) + (ord(bytes[1]) << 16) + (ord(bytes[2]) << 8) + ord(bytes[3])
+        
+            # readinto will automatically try to read # of bytes to fill array
+            ser.readinto(bytes)
+            # construct y value
+            height = (bytes[0] << 24) + (bytes[1] << 16) + (bytes[2] << 8) + bytes[3]
             
             # convert to signed long
             if (height >= 0x80000000):
@@ -57,8 +65,8 @@ while time < 5000:
                 
             samples[pos, i] = numpy.long(height)
 
-        if (time % 2 == 0):
-            extend(pos)
+        #if (time % 2 == 0):
+        extend(pos)
 
         pos = (pos + 1)
         if (pos == BUF_LEN):
