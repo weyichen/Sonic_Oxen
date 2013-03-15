@@ -18,7 +18,7 @@ period = BUF_LEN * timestep
 height = 2000000
 
 # X values
-times = np.arange(0, period, timestep)
+times = numpy.arange(0, period, timestep)
 
 channels = 5
 # Y values
@@ -39,7 +39,7 @@ time = 0
 pos = 0
 
 # Open serial connection
-ser = serial.Serial(3, baudrate=115200, timeout=1)
+ser = serial.Serial(2, baudrate=57600, timeout=1)
 ser.setRTS(True) #?
 ser.setRTS(False) #?
 
