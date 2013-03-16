@@ -4,7 +4,7 @@ import serial
 from time import *
 from collections import deque
 
-ion() # "interactive mode" on
+ioff() # "interactive mode" off
 
 # Length of data buffer
 BUF_LEN = 128
@@ -30,6 +30,8 @@ lines = plot(times, samples)
 for i in range(channels) :
     lines[i].axes.set_ylim(-height, height)
     lines[i].axes.set_xlim(-timestep, period + timestep)
+	
+show(block = False)
 
 # Update graph to extend data lines
 def extend(pos):
@@ -41,14 +43,14 @@ time = 0
 pos = 0
 
 # Open serial connection
-ser = serial.Serial(2, baudrate=57600, timeout=1)
+ser = serial.Serial(3, baudrate=57600, timeout=1)
 ser.setRTS(True) #?
 ser.setRTS(False) #?
 
 # array to read in 4 bytes at a time
 data = deque()
 # amount of time in seconds to plot
-while time < 5000:
+while time < 2000:
     
     # plot 5 channels, up to 4-byte integers (long)
 	while ser.inWaiting() > 4:
@@ -67,16 +69,17 @@ while time < 5000:
 				
 			samples[pos, i] = numpy.long(height)
 
-		#if (time % 2 == 0):
-		extend(pos)
+		if (time % 5 == 0):
+			extend(pos)
+			draw()
 
 		pos = (pos + 1)
 		if (pos == BUF_LEN):
 			pos = 0
 			#times = times + period
 			
-		draw()
 		time += 1
 
 print ser.inWaiting()
+print len(data)
 ser.close

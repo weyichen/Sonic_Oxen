@@ -3,7 +3,7 @@ double r = 0.;
 
 void setup() {
  // initialize serial communications at 9600 bps:
- Serial.begin(115200);
+ Serial.begin(57600);
 }
 
 void loop() {
