@@ -33,12 +33,15 @@ for i in range(channels):
 # capture background of the figure
 backgrounds = [fig.canvas.copy_from_bbox(ax.bbox) for ax in axes]
 
+# Make a convenient zipped list for simultaneous access
+items = zip(lines, axes, backgrounds)
+
 fig.show()
 fig.canvas.draw()
 
 
 # Open serial connection
-ser = serial.Serial(2, baudrate=57600, timeout=1)
+ser = serial.Serial(3, baudrate=57600, timeout=1)
 ser.setRTS(True) #?
 ser.setRTS(False) #?
 
@@ -68,10 +71,9 @@ while t < 2000:
                 
             samples[pos,i] = numpy.long(height)
 
-        items = enumerate(zip(lines, axes, backgrounds), start=1)
-        for j, (line, ax, background) in items:
+        for j, (line, ax, background) in enumerate(items):
             fig.canvas.restore_region(background)
-            line.set_ydata(samples[:,j-1])
+            line.set_ydata(samples[:,j])
             ax.draw_artist(line)
             fig.canvas.blit(ax.bbox)
 
