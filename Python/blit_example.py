@@ -12,10 +12,10 @@ def plot(ax, style):
     return ax.plot(x, y, style, animated=True)[0]
 lines = [plot(ax, style) for ax, style in zip(axes, styles)]
 
+fig.show()
+
 # Let's capture the background of the figure
 backgrounds = [fig.canvas.copy_from_bbox(ax.bbox) for ax in axes]
-
-fig.show()
 
 # We need to draw the canvas before we start animating...
 fig.canvas.draw()

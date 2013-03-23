@@ -29,16 +29,17 @@ for i in range(channels):
     lines.extend(axes[i].plot(times, samples[:,i], styles[i], animated=True))
     lines[i].axes.set_ylim(-height, height)
     lines[i].axes.set_xlim(-timestep, period + timestep)
-    
-# capture background of the figure
+   
+fig.show()
+
+# Let's capture the background of the figure
 backgrounds = [fig.canvas.copy_from_bbox(ax.bbox) for ax in axes]
+
+# We need to draw the canvas before we start animating...
+fig.canvas.draw()
 
 # Make a convenient zipped list for simultaneous access
 items = zip(lines, axes, backgrounds)
-
-fig.show()
-fig.canvas.draw()
-
 
 # Open serial connection
 ser = serial.Serial(3, baudrate=57600, timeout=1)
@@ -52,7 +53,7 @@ t = 0
 pos = 0
 
 tstart = time.time()
-while t < 2000:
+while t < 500:
     
     # plot 5 channels, up to 4-byte integers (long)
     while ser.inWaiting() > 4:
@@ -71,11 +72,15 @@ while t < 2000:
                 
             samples[pos,i] = numpy.long(height)
 
-        for j, (line, ax, background) in enumerate(items):
-            fig.canvas.restore_region(background)
-            line.set_ydata(samples[:,j])
-            ax.draw_artist(line)
-            fig.canvas.blit(ax.bbox)
+        # only update once every ten timepoints
+        if (t % 10) == 0:
+            for j, (line, ax, background) in enumerate(items):
+                fig.canvas.restore_region(background)
+                line.set_ydata(samples[:,j])
+                ax.draw_artist(line)
+                fig.canvas.blit(ax.bbox)
+            
+        
 
         pos += 1
         if (pos == BUF_LEN):
@@ -85,4 +90,4 @@ while t < 2000:
 
 print ser.inWaiting()
 print len(data)
-ser.close
+ser.close()
