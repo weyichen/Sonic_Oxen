@@ -45,25 +45,36 @@ items = zip(lines, axes, backgrounds)
 data = deque()
 on = True
 
+# A class that reads from the serial port using an isolated thread
 class serial_reader_thread(threading.Thread):
+    # Cookie-cutter __init__ function; nothing special
     def __init__(self, threadID, data):
         threading.Thread.__init__(self)
         self.threadID = threadID
         self.data = data
     def run(self):
         self.ser = serial.Serial(3, baudrate=57600, timeout=1)
+        # Run until turned off
         while on:
+            # Read bytes in chunks of meaningful size
             if self.ser.inWaiting() > 4:
+                # Don't read and write data simultaneously; acquire lock
                 dataLock.acquire()
                 data.append(bytearray(4))
                 self.ser.readinto(data[-1])
                 dataLock.release()
+        # Print status and close port on exit
+        dataLock.acquire()
         print "Data:", len(data)
+        dataLock.release()
         print "Serial:", self.ser.inWaiting()
         self.ser.close()
 
-# Open serial connection
+# Lock Access to data
 dataLock = threading.Lock()
+# Make sure to make a new thread each time program is turned on!
+# Once a thread finishes running, it cannot be restarted.
+# Each new thread will reopen the serial port and close it upon completion.
 loader = serial_reader_thread(1, data)
 loader.start()
 
@@ -75,6 +86,7 @@ while t < 10000:
 
     if len(data) > channels:
         for i in range(channels):
+            # Don't read and write data simultaneously; acquire lock
             dataLock.acquire()
             bytes = data.popleft()
             dataLock.release()
@@ -100,4 +112,5 @@ while t < 10000:
                 ax.draw_artist(line)
                 fig.canvas.blit(ax.bbox)
 
+# Close serial port reader
 on = False
