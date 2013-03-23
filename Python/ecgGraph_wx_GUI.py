@@ -30,6 +30,9 @@ class GraphFrame(wx.Frame):
         self.pause_button = wx.Button(self.panel, wx.ID_ANY, "Pause")
         self.Bind(wx.EVT_BUTTON, self.on_pause_button, self.pause_button)
         self.Bind(wx.EVT_UPDATE_UI, self.on_update_pause_button, self.pause_button)
+        #Add timer
+        wx.clock = wx.StaticText(self.panel, wx.ID_ANY, "00:00")
+        
         # Display
         self.Show(True)
         
