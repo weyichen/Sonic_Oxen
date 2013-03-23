@@ -205,50 +205,49 @@ class GraphFrame(wx.Frame):
     def init_plot(self):
         self.dpi = 100
         
-        BUF_LEN = 128 # Length of data buffer
-        timestep = 1 # Time between samples
-        period = BUF_LEN * timestep # Period of 1 draw cycle
-        height = 2000000 # Expected sample value range
+        self.BUF_LEN = 128 # Length of data buffer
+        self.timestep = 1 # Time between samples
+        self.period = BUF_LEN * timestep # Period of 1 draw cycle
+        self.height = 2000000 # Expected sample value range
 
         # X value (time)
-        times = numpy.arange(0, period, timestep)
+        self.times = numpy.arange(0, period, timestep)
 
-        channels = 5
+        self.channels = 5
         # Y values
-        samples = numpy.zeros([BUF_LEN, channels])
-        lines = []
+        self.samples = numpy.zeros([BUF_LEN, channels])
+        self.lines = []
 
-        styles = ['r-', 'g-', 'y-', 'm-', 'k-']
+        self.styles = ['r-', 'g-', 'y-', 'm-', 'k-']
 
         # create 5 subplots and set their axes limits
-        self.fig, self.axes = plt.subplots(nrows=channels)   
-        for i in range(channels):
-            lines.extend(self.axes[i].plot(times, samples[:,i], styles[i], animated=True))
-            lines[i].axes.set_ylim(-height, height)
-            lines[i].axes.set_xlim(-timestep, period + timestep)
+        self.fig, self.axes = plt.subplots(nrows=self.channels)   
+        for i in range(self.channels):
+            (self.lines).extend((self.axes[i]).plot(times, self.samples[:,i], self.styles[i], animated=True))
+            (self.lines[i]).axes.set_ylim(-self.height, height)
+            (self.lines[i]).axes.set_xlim(-self.timestep, self.period + self.timestep)
         
         # capture background of the figure
-        backgrounds = [fig.canvas.copy_from_bbox(ax.bbox) for ax in axes]
+        self.backgrounds = [(self.fig).canvas.copy_from_bbox(ax.bbox) for ax in self.axes]
 
         # Make a convenient zipped list for simultaneous access
-        items = zip(lines, axes, backgrounds)
+        items = zip(self.lines, self.axes, self.backgrounds)
 
-        fig.show()
-        fig.canvas.draw()
-
+        (self.fig).show()
+        (self.fig).canvas.draw()
 
         # Open serial connection
-        ser = serial.Serial(3, baudrate=57600, timeout=1)
-        ser.setRTS(True) #?
-        ser.setRTS(False) #?
+        self.ser = serial.Serial(3, baudrate=57600, timeout=1)
+        (self.ser).setRTS(True) #?
+        (self.ser).setRTS(False) #?
 
         # array to read in 4 bytes at a time
-        data = deque()
+        self.data = deque()
 
-        t = 0
-        pos = 0
+        self.t = 0
+        self.pos = 0
 
-        tstart = time.time()
+        self.tstart = time.time()
         while t < 2000:
             
             # plot 5 channels, up to 4-byte integers (long)
