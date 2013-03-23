@@ -47,7 +47,7 @@ data = deque()
 # Status variables
 on = True
 
-# Lock access to data
+# Lock access to data streams
 dataLock = threading.Lock()
 sampleLock = threading.Lock()
 
@@ -73,8 +73,8 @@ class serial_reader_thread(threading.Thread):
         # Print status and close port on exit
         dataLock.acquire()
         print "Data:", len(data)
-        dataLock.release()
         print "Serial:", self.ser.inWaiting()
+        dataLock.release()
         self.ser.close()
 
 # A class that calculates data on an isolated thread
