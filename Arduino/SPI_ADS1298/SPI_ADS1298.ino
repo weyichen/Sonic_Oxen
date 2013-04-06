@@ -18,12 +18,14 @@ void setup() {
   SPI.setClockDivider(SPI_CLOCK_DIV4);
   
   digitalWrite(SS, LOW);
-  shiftOut(MOSI, SCK, MSBFIRST, 11);
+  delayMicroseconds(1);
+  
+  shiftOut(MOSI, SCK, MSBFIRST, 17);
   //SPI.transfer(11); // Stop Read Data Continuously mode
-  digitalWrite(SS, HIGH);
   
   delayMicroseconds(2); // wait >4 cycles = 0.25uS * 4 = 1uS
- 
+  digitalWrite(SS, HIGH);
+  
   byte regs[20];
   
   for (int i=0; i<20; i++) {
@@ -32,8 +34,9 @@ void setup() {
  
   // RREG
   digitalWrite(SS, LOW);
+  delayMicroseconds(1);
+  
   shiftOut(MOSI, SCK, MSBFIRST, 32);
-  regs[9] = shiftIn(MISO, SCK, MSBFIRST);
 //  SPI.transfer(32); // RREG start at reg 0
   //delayMicroseconds(2);
   shiftOut(MOSI, SCK, MSBFIRST, 3);
@@ -44,7 +47,8 @@ void setup() {
   regs[1] = shiftIn(MISO, SCK, MSBFIRST);
   //delayMicroseconds(2);
   regs[2] = shiftIn(MISO, SCK, MSBFIRST);
-  //delayMicroseconds(2);
+  
+  delayMicroseconds(2);
   digitalWrite(SS, HIGH);
   
 //  regs[0] = SPI.transfer(0);
