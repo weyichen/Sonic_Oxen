@@ -1,12 +1,6 @@
 // include the SPI library:
 #include <SPI.h>
 
-// set SPI interface pins
-//const int SS = 10;
-//const int MOSI = 11;
-//const int MISO = 12;
-//const int SCK = 13;
-
 void setup() {
   
   Serial.begin(57600);
@@ -18,10 +12,8 @@ void setup() {
   SPI.setClockDivider(SPI_CLOCK_DIV4);
   
   digitalWrite(SS, LOW);
-  delayMicroseconds(1);
   
   shiftOut(MOSI, SCK, MSBFIRST, 17);
-  //SPI.transfer(11); // Stop Read Data Continuously mode
   
   delayMicroseconds(2); // wait >4 cycles = 0.25uS * 4 = 1uS
   digitalWrite(SS, HIGH);
@@ -34,10 +26,8 @@ void setup() {
  
   // RREG
   digitalWrite(SS, LOW);
-  delayMicroseconds(1);
   
   shiftOut(MOSI, SCK, MSBFIRST, 32);
-//  SPI.transfer(32); // RREG start at reg 0
   //delayMicroseconds(2);
   shiftOut(MOSI, SCK, MSBFIRST, 3);
 //  SPI.transfer(3); // RREG 19 registers
@@ -50,10 +40,6 @@ void setup() {
   
   delayMicroseconds(2);
   digitalWrite(SS, HIGH);
-  
-//  regs[0] = SPI.transfer(0);
-//  regs[1] = SPI.transfer(0);
-//  regs[2] = SPI.transfer(0);
   
 //  for (int i=0; i<20; i++) {
 //    regs[i] = SPI.transfer(0);  
@@ -71,6 +57,6 @@ void setup() {
 }
 
 void loop() {
-  digitalWrite(SS, LOW);
+  //digitalWrite(SS, LOW);
 }
 
