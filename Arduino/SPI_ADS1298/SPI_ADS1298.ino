@@ -1,7 +1,17 @@
 // include the SPI library:
 #include <SPI.h>
 
+const int ss = 10;
+const int mosi = 11;
+const int miso = 12;
+const int sck = 13;
+
 void setup() {
+  
+  byte regs[20];
+  for (int i=0; i<20; i++) {
+    regs[i] = 0; 
+  }  
   
   Serial.begin(57600);
   
@@ -9,37 +19,29 @@ void setup() {
   SPI.begin(); // SCK, MOSI, SS to OUTPUT, SCK, MOSI to LOW, SS to HIGH
   SPI.setDataMode(SPI_MODE1); 
   SPI.setBitOrder(MSBFIRST);
-  SPI.setClockDivider(SPI_CLOCK_DIV4);
+  SPI.setClockDivider(ss,21);
   
-  digitalWrite(SS, LOW);
-  
-  shiftOut(MOSI, SCK, MSBFIRST, 17);
-  
+  digitalWrite(ss, LOW);
+  shiftOut(mosi, sck, MSBFIRST, 17);
   delayMicroseconds(2); // wait >4 cycles = 0.25uS * 4 = 1uS
-  digitalWrite(SS, HIGH);
-  
-  byte regs[20];
-  
-  for (int i=0; i<20; i++) {
-    regs[i] = 0; 
-  }  
+  digitalWrite(ss, HIGH);
  
   // RREG
-  digitalWrite(SS, LOW);
+  digitalWrite(ss, LOW);
   
-  shiftOut(MOSI, SCK, MSBFIRST, 32);
+  shiftOut(mosi, sck, MSBFIRST, 32);
   //delayMicroseconds(2);
-  shiftOut(MOSI, SCK, MSBFIRST, 3);
+  shiftOut(mosi, sck, MSBFIRST, 3);
 //  SPI.transfer(3); // RREG 19 registers
 
-  regs[0] = shiftIn(MISO, SCK, MSBFIRST);
+  regs[0] = shiftIn(miso, sck, MSBFIRST);
   //delayMicroseconds(2);
-  regs[1] = shiftIn(MISO, SCK, MSBFIRST);
+  regs[1] = shiftIn(miso, sck, MSBFIRST);
   //delayMicroseconds(2);
-  regs[2] = shiftIn(MISO, SCK, MSBFIRST);
+  regs[2] = shiftIn(miso, sck, MSBFIRST);
   
   delayMicroseconds(2);
-  digitalWrite(SS, HIGH);
+  digitalWrite(ss, HIGH);
   
 //  for (int i=0; i<20; i++) {
 //    regs[i] = SPI.transfer(0);  
