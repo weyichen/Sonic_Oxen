@@ -60,7 +60,7 @@ class serial_reader_thread(threading.Thread):
         self.data = data
         self.calc = calc
     def run(self):
-        self.ser = serial.Serial(7, baudrate=57600, timeout=1)
+        self.ser = serial.Serial(4, baudrate=57600, timeout=1)
         time.sleep(5)
         self.ser.write("Begin!")
         # Run until turned off
@@ -68,9 +68,10 @@ class serial_reader_thread(threading.Thread):
             # Read bytes in chunks of meaningful size
             if self.ser.inWaiting() > 4:
                 # Don't read and write data simultaneously; acquire lock
+                b = bytearray(4)
+                self.ser.readinto(b)
                 dataLock.acquire()
-                data.append(bytearray(4))
-                self.ser.readinto(data[-1])
+                data.append(b)
                 dataLock.release()
         # Print status and close port on exit
         dataLock.acquire()
@@ -88,12 +89,15 @@ class calculator_thread(threading.Thread):
         self.data = data
         self.t = 0
     def go(self):
-        return self.t < 10000
+        return self.t < 30000
     def run(self):
         self.pos = 0
         # This t is a global variable shared with display
         while (self.go()):
-            if len(data) > channels:
+            dataLock.acquire()
+            packages = len(data)
+            dataLock.release()
+            if packages > channels:
                 for i in range(channels):
                     # Don't read and write data simultaneously; acquire lock
                     dataLock.acquire()
@@ -106,8 +110,9 @@ class calculator_thread(threading.Thread):
                     if (height >= 0x80000000):
                         height = height - 0x100000000
                     
+                    height = numpy.long(height)
                     sampleLock.acquire()
-                    samples[self.pos,i] = numpy.long(height)
+                    samples[self.pos,i] = height
                     sampleLock.release()
 
                 self.pos += 1

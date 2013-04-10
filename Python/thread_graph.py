@@ -53,17 +53,18 @@ class serial_reader_thread(threading.Thread):
         self.threadID = threadID
         self.data = data
     def run(self):
-        self.ser = serial.Serial(7, baudrate=57600, timeout=1)
-        time.sleep(2)
+        self.ser = serial.Serial(4, baudrate=57600, timeout=1)
+        time.sleep(5)
         self.ser.write("Begin!")
         # Run until turned off
         while on:
             # Read bytes in chunks of meaningful size
             if self.ser.inWaiting() > 4:
+                b = bytearray(4)
+                self.ser.readinto(b)
                 # Don't read and write data simultaneously; acquire lock
                 dataLock.acquire()
-                data.append(bytearray(4))
-                self.ser.readinto(data[-1])
+                data.append(b)
                 dataLock.release()
         # Print status and close port on exit
         dataLock.acquire()
@@ -84,9 +85,11 @@ t = 0
 pos = 0
 
 tstart = time.time()
-while t < 1000:
-
-    if len(data) > channels:
+while t < 30000:
+    dataLock.acquire()
+    packages = len(data)
+    dataLock.release()
+    if packages > channels:
         for i in range(channels):
             # Don't read and write data simultaneously; acquire lock
             dataLock.acquire()

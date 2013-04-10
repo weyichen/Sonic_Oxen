@@ -4,8 +4,7 @@ byte wait;
 
 void setup() {
  // initialize serial communications at 57600 bps:
- Serial.begin(57600);
- Serial1.begin(115200);
+ Serial1.begin(57600);
  
  // Wait until asked to start
  String start_code = "Begin!";
@@ -20,6 +19,9 @@ void setup() {
      }
      if (start_code.equals(cmd)) {
        wait = 0;
+     }
+     else {
+       Serial1.print(cmd);
      }
    }
  }
@@ -60,5 +62,5 @@ void loop() {
  }
 
  // wait 2 milliseconds before the next loop
- delayMicroseconds(100);                  
+ delayMicroseconds(2);                  
 }

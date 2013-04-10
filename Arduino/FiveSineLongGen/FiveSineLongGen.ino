@@ -59,5 +59,5 @@ void loop() {
  }
 
  // wait 2 milliseconds before the next loop
- delayMicroseconds(100);                  
+ delayMicroseconds(2);                  
 }

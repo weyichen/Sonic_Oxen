@@ -2,7 +2,7 @@ byte wait;
 
 void setup() {
  Serial.begin(57600);
- Serial1.begin(57600);
+ Serial1.begin(115200);
  
  // Wait until asked to start
  String start_code = "Begin!";
@@ -35,6 +35,7 @@ void loop() {
     
     data = Serial1.read();
     Serial.write(data);
+    Serial1.write(data);
     
   }
 }
