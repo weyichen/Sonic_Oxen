@@ -1,9 +1,27 @@
 long data[5];
 double r = 0.;
+byte wait;
 
 void setup() {
- // initialize serial communications at 9600 bps:
- Serial.begin(38400);
+ // initialize serial communications at 57600 bps:
+ Serial.begin(57600);
+ 
+ // Wait until asked to start
+ String start_code = "Begin!";
+ wait = 1;
+ 
+ while (wait) {
+   if (Serial.available() >= 6) {
+     char cmd[7];
+     cmd[6] = '\0';
+     for (int i = 0; i < 6; i++)  {
+       cmd[i] = Serial.read();
+     }
+     if (start_code.equals(cmd)) {
+       wait = 0;
+     }
+   }
+ }
 }
 
 void loop() {
@@ -11,14 +29,14 @@ void loop() {
  long amp = 0;
  
  for (int i=0; i<5; i++){
-   amp = amp + 200000;
+  amp = amp + 200000;
   data[i] = long(amp*sin(r));
  }
  
  byte byte1, byte2, byte3, byte4;
  
  for (int i=0; i<5; i++){
-  byte1 = byte(data[i] >> 24);
+  byte1 = byte(data[i] >> 24 & 255);
   byte2 = byte((data[i] >> 16) & 255);
   byte3 = byte((data[i] >> 8) & 255);
   byte4 = byte(data[i] & 255);
@@ -41,5 +59,5 @@ void loop() {
  }
 
  // wait 2 milliseconds before the next loop
- delayMicroseconds(1000);                     
+ delayMicroseconds(100);                  
 }

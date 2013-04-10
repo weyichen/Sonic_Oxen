@@ -60,7 +60,9 @@ class serial_reader_thread(threading.Thread):
         self.data = data
         self.calc = calc
     def run(self):
-        self.ser = serial.Serial(3, baudrate=57600, timeout=1)
+        self.ser = serial.Serial(7, baudrate=57600, timeout=1)
+        time.sleep(5)
+        self.ser.write("Begin!")
         # Run until turned off
         while self.calc.go():
             # Read bytes in chunks of meaningful size

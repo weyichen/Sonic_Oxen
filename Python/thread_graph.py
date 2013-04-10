@@ -53,7 +53,9 @@ class serial_reader_thread(threading.Thread):
         self.threadID = threadID
         self.data = data
     def run(self):
-        self.ser = serial.Serial(3, baudrate=57600, timeout=1)
+        self.ser = serial.Serial(7, baudrate=57600, timeout=1)
+        time.sleep(2)
+        self.ser.write("Begin!")
         # Run until turned off
         while on:
             # Read bytes in chunks of meaningful size
@@ -82,7 +84,7 @@ t = 0
 pos = 0
 
 tstart = time.time()
-while t < 10000:
+while t < 1000:
 
     if len(data) > channels:
         for i in range(channels):

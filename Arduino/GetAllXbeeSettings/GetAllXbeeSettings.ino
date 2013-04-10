@@ -1,27 +1,28 @@
-# define BAUD "ATBD7\r"
+# define BAUD "ATBD6\r"
 
 int step = 0;
 int text[10];
+long rate = 57600;
 long rate1 = 115200;
-//long rate2 = 115200;
 
 // helper function: send a command with appropriate delays
 void talk(char* cmd) {
   delay(2000); // need this delay for the same reason as below
-  Serial.print(cmd); // send command
+  Serial.println(cmd);
+  Serial1.print(cmd); // send command
   delay(2000); // need this delay so that +++ are the only characters seen
-  Serial.println();
+  Serial1.println();
 }
 
 // helper function: step++ if OK was received from Xbee module
 void rec_ok(int bytesExp) {
-  if (Serial.available() >= bytesExp) {
+  if (Serial1.available() >= bytesExp) {
     
-    int numbytes = Serial.available();
+    int numbytes = Serial1.available();
     
     // get all bytes received
     for (int i=0; i < numbytes; i++) {
-      text[i] = Serial.read();  
+      text[i] = Serial1.read();  
     }
     
     // print out all bytes received
@@ -38,7 +39,8 @@ void rec_ok(int bytesExp) {
 }
 
 void setup() {
-  Serial.begin(rate1);
+  Serial.begin(rate);
+  Serial1.begin(rate1);
 }
 
 void loop() {
