@@ -67,6 +67,7 @@ class serial_reader_thread(threading.Thread):
                 data.append(b)
                 dataLock.release()
         # Print status and close port on exit
+        self.ser.write("Stop!")
         dataLock.acquire()
         print "Data:", len(data)
         dataLock.release()
@@ -84,8 +85,8 @@ loader.start()
 t = 0
 pos = 0
 
-tstart = time.time()
-while t < 30000:
+#tstart = time.time()
+while t < 1000000:
     dataLock.acquire()
     packages = len(data)
     dataLock.release()

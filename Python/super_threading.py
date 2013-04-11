@@ -50,6 +50,7 @@ on = True
 # Lock access to data streams
 dataLock = threading.Lock()
 sampleLock = threading.Lock()
+timeLock = threading.Lock()
 
 # A class that reads from the serial port using an isolated thread
 class serial_reader_thread(threading.Thread):
@@ -74,6 +75,7 @@ class serial_reader_thread(threading.Thread):
                 data.append(b)
                 dataLock.release()
         # Print status and close port on exit
+        self.ser.write("Stop!")
         dataLock.acquire()
         print "Data:", len(data)
         print "Serial:", self.ser.inWaiting()
@@ -89,7 +91,10 @@ class calculator_thread(threading.Thread):
         self.data = data
         self.t = 0
     def go(self):
-        return self.t < 30000
+        timeLock.acquire()
+        yes = (self.t < 1000000)
+        timeLock.release()
+        return yes
     def run(self):
         self.pos = 0
         # This t is a global variable shared with display
@@ -118,8 +123,10 @@ class calculator_thread(threading.Thread):
                 self.pos += 1
                 if (self.pos == BUF_LEN):
                     self.pos = 0
-                    
+                
+                timeLock.acquire()
                 self.t += 1
+                timeLock.release()
         # Print status and close reader on exit
         dataLock.acquire()
         print "Data:", len(data)
