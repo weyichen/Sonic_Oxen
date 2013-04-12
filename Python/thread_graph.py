@@ -8,8 +8,8 @@ from scipy.signal import butter, lfilter
 
 fs = 1000
 nyq = 0.5 * fs
-lowcut = 5
-highcut = 40
+lowcut = 2
+highcut = 50
 low = lowcut / nyq
 high = highcut / nyq
 b, a = butter(5, [low, high], btype='band')
@@ -36,9 +36,10 @@ styles = ['r-', 'g-', 'y-', 'm-', 'k-']
 # create 5 subplots and set their axes limits
 fig, axes = plt.subplots(nrows=channels)    
 for i in range(channels):
-    lines.extend(axes[i].plot(times, samples[:,i], styles[i], animated=True))
+    y = samples[:,i]
+    lines.extend(axes[i].plot(times[:0.8*len(times)], y[0.1*len(y):-0.1*len(y)], styles[i], animated=True))
     lines[i].axes.set_ylim(-height, height)
-    lines[i].axes.set_xlim(-timestep, period + timestep)
+    lines[i].axes.set_xlim(-timestep, period*0.8 + timestep)
 
 fig.show()
 
@@ -62,7 +63,7 @@ class serial_reader_thread(threading.Thread):
         self.threadID = threadID
         self.data = data
     def run(self):
-        self.ser = serial.Serial(7, baudrate=57600, timeout=1)
+        self.ser = serial.Serial(6, baudrate=57600, timeout=1)
         time.sleep(5)
         self.ser.write("Begin!")
         # Run until turned off
@@ -124,7 +125,7 @@ while t < 1000:
         for j, (line, ax, background) in enumerate(items):
                 fig.canvas.restore_region(background)
                 y = lfilter(b,a,samples[:,j])
-                line.set_ydata(y)
+                line.set_ydata(y[len(y)*0.1:-len(y)*0.1])
                 ax.draw_artist(line)
                 fig.canvas.blit(ax.bbox)
 
