@@ -4,12 +4,21 @@ import serial
 import time
 from collections import deque
 import threading
+from scipy.signal import butter, lfilter
+
+fs = 1000
+nyq = 0.5 * fs
+lowcut = 5
+highcut = 40
+low = lowcut / nyq
+high = highcut / nyq
+b, a = butter(5, [low, high], btype='band')
 
 # "interactive mode" off
 # if on, figure is redrawn every time it is updated, such as setting data in the extend() method
 plt.ioff()
 
-BUF_LEN = 128 # Length of data buffer
+BUF_LEN = 300 # Length of data buffer
 timestep = 1 # Time between samples
 period = BUF_LEN * timestep # Period of 1 draw cycle
 height = 2000000 # Expected sample value range
@@ -53,7 +62,7 @@ class serial_reader_thread(threading.Thread):
         self.threadID = threadID
         self.data = data
     def run(self):
-        self.ser = serial.Serial(4, baudrate=57600, timeout=1)
+        self.ser = serial.Serial(7, baudrate=57600, timeout=1)
         time.sleep(5)
         self.ser.write("Begin!")
         # Run until turned off
@@ -86,7 +95,7 @@ t = 0
 pos = 0
 
 #tstart = time.time()
-while t < 1000000:
+while t < 1000:
     dataLock.acquire()
     packages = len(data)
     dataLock.release()
@@ -114,7 +123,8 @@ while t < 1000000:
     if (t % 5) == 0:
         for j, (line, ax, background) in enumerate(items):
                 fig.canvas.restore_region(background)
-                line.set_ydata(samples[:,j])
+                y = lfilter(b,a,samples[:,j])
+                line.set_ydata(y)
                 ax.draw_artist(line)
                 fig.canvas.blit(ax.bbox)
 

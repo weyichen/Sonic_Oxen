@@ -1,15 +1,19 @@
 long data[5];
 double r = 0.;
-byte wait;
+byte wait = 1;
+
+String start_code = "Begin!";
+String stop_code = "Stop!";
+
 
 void setup() {
  // initialize serial communications at 57600 bps:
  Serial.begin(57600);
  
- // Wait until asked to start
- String start_code = "Begin!";
- wait = 1;
+ digitalWrite(8, HIGH);
+ pinMode(8, OUTPUT);
  
+ // Wait until asked to start
  while (wait) {
    if (Serial.available() >= 6) {
      char cmd[7];
@@ -25,12 +29,11 @@ void setup() {
 }
 
 void loop() {
- r=r+0.1;
- long amp = 0;
+ r=r+0.05;
+ long amp = 1000000;
  
  for (int i=0; i<5; i++){
-  amp = amp + 200000;
-  data[i] = long(amp*sin(r));
+  data[i] = long(amp*sin((i+1) * r));
  }
  
  byte byte1, byte2, byte3, byte4;
@@ -45,17 +48,17 @@ void loop() {
   Serial.write(byte2);
   Serial.write(byte3);
   Serial.write(byte4);
-  
-//  Serial.print("long ");
-//  Serial.println(data[i]);
-//  Serial.print("byte1 ");
-//  Serial.println(byte1);
-//  Serial.print("byte2 ");
-//  Serial.println(byte2);
-//  Serial.print("byte3 ");
-//  Serial.println(byte3);
-//  Serial.print("byte4 ");
-//  Serial.println(byte4);
+ }
+ 
+ if (Serial.available() >= 5) {
+   char cmd[6];
+   cmd[5] = '\0';
+   for (int i = 0; i < 5; i++)  {
+     cmd[i] = Serial.read();
+   }
+   if (stop_code.equals(cmd)) {
+     digitalWrite(8, LOW);
+   }
  }
 
  // wait 2 milliseconds before the next loop
