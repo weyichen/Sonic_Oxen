@@ -19,6 +19,7 @@ b, a = butter(5, [low, high], btype='band')
 plt.ioff()
 
 BUF_LEN = 300 # Length of data buffer
+FRAME_LEN = 0.1*BUF_LEN
 timestep = 1 # Time between samples
 period = BUF_LEN * timestep # Period of 1 draw cycle
 height = 2000000 # Expected sample value range
@@ -37,9 +38,9 @@ styles = ['r-', 'g-', 'y-', 'm-', 'k-']
 fig, axes = plt.subplots(nrows=channels)    
 for i in range(channels):
     y = samples[:,i]
-    lines.extend(axes[i].plot(times[:0.8*len(times)], y[0.1*len(y):-0.1*len(y)], styles[i], animated=True))
+    lines.extend(axes[i].plot(times[:-2*FRAME_LEN], y[FRAME_LEN:-FRAME_LEN], styles[i], animated=True))
     lines[i].axes.set_ylim(-height, height)
-    lines[i].axes.set_xlim(-timestep, period*0.8 + timestep)
+    lines[i].axes.set_xlim(-timestep, period - 2 * FRAME_LEN + timestep)
 
 fig.show()
 
@@ -63,9 +64,15 @@ class serial_reader_thread(threading.Thread):
         self.threadID = threadID
         self.data = data
     def run(self):
-        self.ser = serial.Serial(6, baudrate=57600, timeout=1)
-        time.sleep(5)
-        self.ser.write("Begin!")
+        self.ser = serial.Serial(4, baudrate=57600, timeout=1)
+        self.ser.flushInput()
+        self.ser.setRTS(False)
+        time.sleep(0.5)
+        self.ser.setRTS(True)
+        while (self.ser.inWaiting() == 0):
+            self.ser.write("Begin!x")
+            print "Trying"
+            time.sleep(0.2)
         # Run until turned off
         while on:
             # Read bytes in chunks of meaningful size
@@ -77,11 +84,14 @@ class serial_reader_thread(threading.Thread):
                 data.append(b)
                 dataLock.release()
         # Print status and close port on exit
-        self.ser.write("Stop!")
         dataLock.acquire()
         print "Data:", len(data)
         dataLock.release()
         print "Serial:", self.ser.inWaiting()
+        while (self.ser.inWaiting()):
+            self.ser.write("Stop!")
+            self.ser.flushInput()
+            time.sleep(0.5)
         self.ser.close()
 
 # Lock Access to data
@@ -125,7 +135,7 @@ while t < 1000:
         for j, (line, ax, background) in enumerate(items):
                 fig.canvas.restore_region(background)
                 y = lfilter(b,a,samples[:,j])
-                line.set_ydata(y[len(y)*0.1:-len(y)*0.1])
+                line.set_ydata(y[FRAME_LEN:-FRAME_LEN])
                 ax.draw_artist(line)
                 fig.canvas.blit(ax.bbox)
 

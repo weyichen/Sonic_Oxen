@@ -4,12 +4,22 @@ import serial
 import time
 from collections import deque
 import threading
+from scipy.signal import butter, lfilter
+
+fs = 1000
+nyq = 0.5 * fs
+lowcut = 2
+highcut = 50
+low = lowcut / nyq
+high = highcut / nyq
+b, a = butter(5, [low, high], btype='band')
 
 # "interactive mode" off
 # if on, figure is redrawn every time it is updated, such as setting data in the extend() method
 plt.ioff()
 
-BUF_LEN = 128 # Length of data buffer
+BUF_LEN = 300 # Length of data buffer
+FRAME_LEN = 0.1*BUF_LEN
 timestep = 1 # Time between samples
 period = BUF_LEN * timestep # Period of 1 draw cycle
 height = 2000000 # Expected sample value range
@@ -27,9 +37,10 @@ styles = ['r-', 'g-', 'y-', 'm-', 'k-']
 # create 5 subplots and set their axes limits
 fig, axes = plt.subplots(nrows=channels)    
 for i in range(channels):
-    lines.extend(axes[i].plot(times, samples[:,i], styles[i], animated=True))
+    y = samples[:,i]
+    lines.extend(axes[i].plot(times[:-2*FRAME_LEN], y[FRAME_LEN:-FRAME_LEN], styles[i], animated=True))
     lines[i].axes.set_ylim(-height, height)
-    lines[i].axes.set_xlim(-timestep, period + timestep)
+    lines[i].axes.set_xlim(-timestep, period - 2 * FRAME_LEN + timestep)
 
 fig.show()
 
@@ -61,8 +72,9 @@ class serial_reader_thread(threading.Thread):
         self.data = data
         self.calc = calc
     def run(self):
-        self.ser = serial.Serial(7, baudrate=57600, timeout=1)
+        self.ser = serial.Serial(4, baudrate=57600, timeout=1)
         time.sleep(5)
+        self.ser.flushInput()
         self.ser.write("Begin!")
         # Run until turned off
         while self.calc.go():
@@ -92,7 +104,7 @@ class calculator_thread(threading.Thread):
         self.t = 0
     def go(self):
         timeLock.acquire()
-        yes = (self.t < 1000000)
+        yes = (self.t < 3000)
         timeLock.release()
         return yes
     def run(self):
@@ -145,8 +157,10 @@ class display_thread(threading.Thread):
             for j, (line, ax, background) in enumerate(items):
                 fig.canvas.restore_region(background)
                 sampleLock.acquire()
-                line.set_ydata(samples[:,j])
+                s = samples[:,j]
                 sampleLock.release()
+                y = lfilter(b, a, s)
+                line.set_ydata(y[FRAME_LEN : -FRAME_LEN])
                 ax.draw_artist(line)
                 fig.canvas.blit(ax.bbox)
         # Print status on exit
