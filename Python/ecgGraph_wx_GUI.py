@@ -25,7 +25,7 @@ import threading
 class MainFrame(wx.Frame):
     def __init__(self, parent, ID, title):
         self.title = title
-        wx.Frame.__init__(self, parent, ID, self.title, size = (200,100))
+        wx.Frame.__init__(self, parent, ID, self.title)
 
         # Setting up the menu.
         filemenu= wx.Menu()
@@ -144,10 +144,11 @@ class MainPanel(wx.Panel):
             axis.set_axis_bgcolor('black')
             line = axis.plot(times, samples[:,i], styles[i], animated=True)
             
-            
-            
             canvas = FigCanvas(self, -1, grafig)
             graphGrid.Add(canvas, pos=((i*2+1)%6, i/3))
+            
+            # We need to draw the canvas before we start animating
+            grafig.canvas.draw()
             
             # add figure elements to the appropriate list
             figs.append(grafig);
@@ -158,8 +159,7 @@ class MainPanel(wx.Panel):
             lines[i].axes.set_ylim(-height, height)
             lines[i].axes.set_xlim(-timestep, period + timestep)
             
-            # We need to draw the canvas before we start animating
-            grafig.canvas.draw()
+            
         
         # Make a convenient zipped list for simultaneous access
         items = zip(figs, lines, axes, backgrounds)
@@ -197,24 +197,51 @@ class MainPanel(wx.Panel):
         self.SetSizerAndFit(mainSizer)
         
         # show panel (always last step)
+        parent.Show(True)
         self.Show(True)
         
         #-----------------BEGIN GRAPHING LOGIC----------
         
-        # array to read in 4 bytes at a time
-        data = deque()
-        on = True
         
+        
+        t = 0
+        pos = 0
+        
+        while t < 1000:
+            dataLock.acquire()
+            packages = len(data)
+            dataLock.release()
+            if packages > channels:
+                for i in range(channels):
+                    # Don't read and write data simultaneously; acquire lock
+                    dataLock.acquire()
+                    bytes = data.popleft()
+                    dataLock.release()
+                    # construct y value
+                    height = (bytes[0] << 24) + (bytes[1] << 16) + (bytes[2] << 8) + bytes[3]
+                    
+                    # convert to signed long
+                    if (height >= 0x80000000):
+                        height = height - 0x100000000
+                        
+                    samples[pos,i] = np.long(height)
 
-        # get and update graph at each position in the grid
-        for j, (fig, line, ax, background) in enumerate(items):
-            fig.canvas.restore_region(background)
-            line.set_ydata(samples[:,j])
-            ax.draw_artist(line)
-            fig.canvas.blit(ax.bbox)
-    
-    
-    # helper method for updating a single plot
+                pos += 1
+                if (pos == BUF_LEN):
+                    pos = 0
+                    
+                t += 1
+                
+            if (t % 5) == 0:
+                # get and update graph at each position in the grid
+                for j, (fig, line, ax, background) in enumerate(items):
+                    fig.canvas.restore_region(background)
+                    line.set_ydata(samples[:,j])
+                    ax.draw_artist(line)
+                    fig.canvas.blit(ax.bbox)
+                    
+        # Close serial port reader
+        on = False
     
     def on_pause_button(self, event):
         self.paused = not self.paused
@@ -226,12 +253,11 @@ class MainPanel(wx.Panel):
 # A class that reads from the serial port using an isolated thread
 class serial_reader_thread(threading.Thread):
     # Cookie-cutter __init__ function; nothing special
-    def __init__(self, threadID, data):
+    def __init__(self, threadID):
         threading.Thread.__init__(self)
         self.threadID = threadID
-        self.data = data
     def run(self):
-        self.ser = serial.Serial(4, baudrate=57600, timeout=1)
+        self.ser = serial.Serial(6, baudrate=57600, timeout=1)
         time.sleep(5)
         self.ser.write("Begin!")
         # Run until turned off
@@ -251,8 +277,20 @@ class serial_reader_thread(threading.Thread):
         dataLock.release()
         print "Serial:", self.ser.inWaiting()
         self.ser.close()
+
+# global graph variables
+# array to read in 4 bytes at a time
+data = deque()
+on = True
+
+# Lock Access to data
+dataLock = threading.Lock()
+# Make sure to make a new thread each time program is turned on!
+# Once a thread finishes running, it cannot be restarted.
+# Each new thread will reopen the serial port and close it upon completion.
+loader = serial_reader_thread(1)
+loader.start()
         
 app = wx.App(False)
 frame = MainFrame(None, wx.ID_ANY, "Sonic Oxen")
-frame.Show()
 app.MainLoop()
