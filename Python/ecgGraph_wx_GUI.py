@@ -317,7 +317,7 @@ class serial_reader_thread(threading.Thread):
             time.sleep(0.5)
         self.paused = False
     def run(self):
-        self.ser = serial.Serial(4, baudrate=57600, timeout=1)
+        self.ser = serial.Serial(6, baudrate=57600, timeout=1)
         self.ser.flushInput()
         self.ready()
         # Run until turned off
