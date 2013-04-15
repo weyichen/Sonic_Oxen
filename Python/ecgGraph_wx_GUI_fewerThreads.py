@@ -29,7 +29,7 @@ lowcut = 0.5
 highcut = 50
 low = lowcut / nyq
 high = highcut / nyq
-b, a = butter(3, [low, high], btype='band')
+b, a = butter(5, [low, high], btype='band')
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, ID, title):
@@ -126,9 +126,10 @@ class MainPanel(wx.Panel):
         g_length = 1.8
         styles = ['r-', 'g-', 'y-', 'm-', 'b-', 'r-', 'g-', 'y-', 'm-', 'b-', 'r-', 'g-']
         
-        global times, samples
+        global times, samples, values
         times = np.arange(0, period, timestep) # X values
         samples = np.zeros([BUF_LEN, channels]) # Y values
+        values = np.zeros([BUF_LEN, channels]) # Y values
         
         # save initial background of all graphing canvas, for use when updating graphs
         # place data, axes, and backgrounds of matplotlib figures in lists for easy acces to handles later
@@ -176,7 +177,6 @@ class MainPanel(wx.Panel):
         data = deque()
         on = True
         self.loader = serial_reader_thread(1)
-        self.calc = calculator_thread(2)
         
         # Make a convenient zipped list for simultaneous access
         self.items = zip(figs, lines, axes, backgrounds)
@@ -198,9 +198,9 @@ class MainPanel(wx.Panel):
         
         # add vitals information
         self.elapsed_lbl = wx.StaticText(self, label="Time elapsed: ")
-        self.elapsed = wx.StaticText(self, label="00:00:00")
-        #self.heartrate_lbl = wx.StaticText(self, label="Heart rate: ")
-        #self.heartrate = wx.StaticText(self, label="1 bpm")
+        self.elapsed = wx.StaticText(self, label="0 s")
+        self.heartrate_lbl = wx.StaticText(self, label="Heart rate: ")
+        self.heartrate = wx.StaticText(self, label="1 bpm")
         
         # add sidebar elements to grid
         sideBar.Add(self.pause_button, pos=(0,0))
@@ -224,37 +224,47 @@ class MainPanel(wx.Panel):
         
         # Begin timer and helper threads
         self.loader.start()
-        self.calc.start()
         
         self.redraw_timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)        
-        self.redraw_timer.Start(10)
+        self.redraw_timer.Start(1)
         
-        self.t_timer = wx.Timer(self)
-        self.Bind(wx.EVT_TIMER, self.update_time, self.t_timer)
-        self.t_timer.Start(10000)
-        time.clock()
-        
-    def update_time(self, event):
-        elapsed_t = time.clock()
-        hr = str(int(elapsed_t / 3600))
-        min = str(int((elapsed_t / 60) % 60))
-        sec = str(int(elapsed_t % 60))
-        l = ':'.join([hr,min,sec])
-        self.elapsed.SetLabel(l)
+        #-----------------BEGIN GRAPHING LOGIC----------
     
     def on_redraw_timer(self, event):
         if not self.paused:
-            # get and update graph at each position in the grid
-            for j, (fig, line, ax, background) in enumerate(self.items):
-                fig.canvas.restore_region(background)
-                sampleLock.acquire()
-                s = samples[:,j]
-                sampleLock.release()
-                y = lfilter(b, a, s)
-                line.set_ydata(y[FRAME_LEN:-FRAME_LEN])
-                ax.draw_artist(line)
-                fig.canvas.blit(ax.bbox)
+            dataLock.acquire()
+            packages = len(data)
+            dataLock.release()
+            if packages > channels:
+                for i in range(channels):
+                    # Don't read and write data simultaneously; acquire lock
+                    dataLock.acquire()
+                    bytes = data.popleft()
+                    dataLock.release()
+                    # construct y value
+                    height = (bytes[0] << 16) + (bytes[1] << 8) + bytes[2]
+                    
+                    # convert to signed long
+                    if (height >= 0x800000): # = 2^23
+                        height = height - 0x1000000 # = 2^24 
+                    
+                    height = np.long(height)
+                    samples[self.pos,i] = height
+
+                self.pos += 1
+                if (self.pos == BUF_LEN):
+                    self.pos = 0
+                
+                if (self.pos % 5 == 0):
+                    # get and update graph at each position in the grid
+                    for j, (fig, line, ax, background) in enumerate(self.items):
+                        fig.canvas.restore_region(background)
+                        s = samples[:,j]
+                        y = lfilter(b,a,s)
+                        line.set_ydata(y[FRAME_LEN:-FRAME_LEN])
+                        ax.draw_artist(line)
+                        fig.canvas.blit(ax.bbox)
                     
         # Close serial port reader
         on = False
@@ -267,14 +277,12 @@ class MainPanel(wx.Panel):
             self.redraw_timer.Start(10)
             
     def on_reset_button(self, event):
-            self.calc.reset()
             self.loader.reset()
             global data
             dataLock.acquire()
             print "Data:", len(data)
             data = deque()
             dataLock.release()
-            self.calc.ready()
             self.loader.ready()
     
     def on_update_pause_button(self, event):
@@ -295,25 +303,14 @@ class serial_reader_thread(threading.Thread):
         self.paused = True
         print "Serial:", self.ser.inWaiting()
     def ready(self):
-        # Make extra super sure we reset the Arduino
         while (self.ser.inWaiting()):
-            self.ser.write("Stop!x")
+            self.ser.write("Stop!")
             self.ser.flushInput()
             time.sleep(1)
-        time.sleep(1)
-        while (self.ser.inWaiting()):
-            self.ser.write("Stop!x")
-            self.ser.flushInput()
-            time.sleep(1)
-        time.sleep(1)
-        while (self.ser.inWaiting()):
-            self.ser.write("Stop!x")
-            self.ser.flushInput()
-            time.sleep(1)
-        time.sleep(1)
+        time.sleep(0.1)
         while (not self.ser.inWaiting()):
             self.ser.write("Begin!x")
-            time.sleep(0.5)
+            time.sleep(0.2)
         self.paused = False
     def run(self):
         self.ser = serial.Serial(4, baudrate=57600, timeout=1)
@@ -329,50 +326,7 @@ class serial_reader_thread(threading.Thread):
                     # Don't read and write data simultaneously; acquire lock
                     dataLock.acquire()
                     data.append(b)
-                    dataLock.release()
-
-# A class that calculates data on an isolated thread
-class calculator_thread(threading.Thread):
-    # Cookie-cutter __init__ function; nothing special
-    def __init__(self, threadID):
-        threading.Thread.__init__(self)
-        self.threadID = threadID
-        self.paused = False
-    def on(self):
-        return not self.paused
-    def reset(self):
-        self.paused = True
-    def ready(self):
-        self.paused = False
-    def run(self):
-        self.pos = 0
-        # This t is a global variable shared with display
-        while 1:
-            if self.on():
-                dataLock.acquire()
-                packages = len(data)
-                dataLock.release()
-                if packages > channels:
-                    for i in range(channels):
-                        # Don't read and write data simultaneously; acquire lock
-                        dataLock.acquire()
-                        bytes = data.popleft()
-                        dataLock.release()
-                        # construct y value
-                        height = (bytes[0] << 16) + (bytes[1] << 8) + bytes[2]
-                        
-                        # convert to signed long
-                        if (height >= 0x800000): # = 2^23
-                            height = height - 0x1000000 # = 2^24 
-                        
-                        height = np.long(height)
-                        sampleLock.acquire()
-                        samples[self.pos,i] = height
-                        sampleLock.release()
-
-                    self.pos += 1
-                    if (self.pos == BUF_LEN):
-                        self.pos = 0
+                    dataLock.release()                
         
 # global graph variables
 # array to read in 4 bytes at a time
@@ -380,6 +334,7 @@ class calculator_thread(threading.Thread):
 # Lock Access to data
 dataLock = threading.Lock()
 sampleLock = threading.Lock()
+valueLock = threading.Lock()
 # Make sure to make a new thread each time program is turned on!
 # Once a thread finishes running, it cannot be restarted.
 # Each new thread will reopen the serial port and close it upon completion.
