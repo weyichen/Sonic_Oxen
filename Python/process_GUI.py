@@ -354,8 +354,7 @@ class calculator_thread(mp.Process):
         self.BUF_LEN = BUF_LEN
         self.cmds = cmds
         self.paused = False
-    def on(self):
-        return not self.paused
+        self.on = True
     def reset(self):
         self.paused = True
     def ready(self):
