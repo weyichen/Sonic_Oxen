@@ -10,7 +10,7 @@ long amp = 1000000;
 void setup() {
  // initialize serial communications at 57600 bps:
  Serial1.begin(57600);
- Serial.begin(9600);
+ Serial.begin(300);
  //digitalWrite(8, HIGH);
  //pinMode(8, OUTPUT);
  
