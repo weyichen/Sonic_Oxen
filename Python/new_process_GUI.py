@@ -19,8 +19,8 @@ import numpy as np
 import pylab as pyl
 import serial
 import time
-from collections import deque
-import threading
+import ctypes
+import multiprocessing as mp
 from scipy.signal import butter, lfilter
 
 fs = 500
@@ -99,6 +99,7 @@ class MainFrame(wx.Frame):
         dlg.Destroy() # finally destroy it when finished.
         
     def OnExit(self,e):
+        self.main_panel.exit()
         self.Close(True)  # Close the frame.
 
 class MainPanel(wx.Panel):
@@ -127,9 +128,11 @@ class MainPanel(wx.Panel):
 
         styles = ['r-', 'g-', 'y-', 'm-', 'r-', 'r-', 'g-', 'y-', 'm-', 'r-', 'r-', 'g-']
         
-        global times, samples
+        global times, raw_samples, samples
         times = np.arange(0, period, timestep) # X values
-        samples = np.zeros([BUF_LEN, channels]) # Y values
+        raw_samples = mp.Array(ctypes.c_longlong, BUF_LEN * channels)
+        samples = np.ctypeslib.as_array(raw_samples.get_obj())
+        samples = samples.reshape(BUF_LEN, channels) # Y values
         
         # save initial background of all graphing canvas, for use when updating graphs
         # place data, axes, and backgrounds of matplotlib figures in lists for easy acces to handles later
@@ -173,11 +176,10 @@ class MainPanel(wx.Panel):
             backgrounds.append(grafig.canvas.copy_from_bbox(axis.bbox))
             
         #-----------------BEGIN DATA STUFF------------------
-        global data, on
-        data = deque()
-        on = True
-        self.loader = serial_reader_thread(1)
-        self.calc = calculator_thread(2)
+        # Lock Access to data
+        global calc_ctrl
+        calc_ctrl = mp.Queue()
+        self.calc = calculator_thread(raw_samples, BUF_LEN, channels, calc_ctrl)
         
         # Make a convenient zipped list for simultaneous access
         self.items = zip(figs, lines, axes, backgrounds)
@@ -224,7 +226,6 @@ class MainPanel(wx.Panel):
         self.Show(True)
         
         # Begin timer and helper threads
-        self.loader.start()
         self.calc.start()
         
         self.redraw_timer = wx.Timer(self)
@@ -235,7 +236,11 @@ class MainPanel(wx.Panel):
         self.Bind(wx.EVT_TIMER, self.update_time, self.t_timer)
         self.t_timer.Start(10000)
         time.clock()
-        
+    
+    def exit(self):
+        self.paused = True
+        calc_ctrl.put("Exit!")
+    
     def update_time(self, event):
         elapsed_t = time.clock()
         hr = str(int(elapsed_t / 3600))
@@ -249,10 +254,8 @@ class MainPanel(wx.Panel):
             # get and update graph at each position in the grid
             for j, (fig, line, ax, background) in enumerate(self.items):
                 fig.canvas.restore_region(background)
-                sampleLock.acquire()
-                s = samples[:,j]
-                sampleLock.release()
-                y = lfilter(b, a, s)
+                slice = samples[:,j]
+                y = lfilter(b, a, slice)
                 line.set_ydata(y[FRAME_LEN:-FRAME_LEN])
                 ax.draw_artist(line)
                 fig.canvas.blit(ax.bbox)
@@ -267,38 +270,28 @@ class MainPanel(wx.Panel):
         else:
             self.redraw_timer.Start(10)
             
-    def on_reset_button(self, event):
-            self.calc.reset()
-            self.loader.reset()
-            global data
-            dataLock.acquire()
-            print "Data:", len(data)
-            data = deque()
-            dataLock.release()
-            self.calc.ready()
-            self.loader.ready()
-    
     def on_update_pause_button(self, event):
         label = "Resume" if self.paused else "Pause"
         self.pause_button.SetLabel(label)
-        
-# A class that reads from the serial port using an isolated thread
-class serial_reader_thread(threading.Thread):
+            
+    def on_reset_button(self, event):
+        calc_ctrl.put('-')
+        calc_ctrl.put('+')
+
+# A class that calculates data on an isolated thread
+class calculator_thread(mp.Process):
     # Cookie-cutter __init__ function; nothing special
-    def __init__(self, threadID):
-        threading.Thread.__init__(self)
-        self.threadID = threadID
+    def __init__(self, samples, BUF_LEN, channels, cmds):
+        mp.Process.__init__(self)
+        self.samples = samples
+        self.channels = channels
+        self.BUF_LEN = BUF_LEN
+        self.cmds = cmds
         self.paused = False
-        self.ser = serial.Serial(4, baudrate=57600, timeout=1)
-        self.ser.flushInput()
-        self.ready()
-    def on(self):
-        return not self.paused
+        self.on = True
     def reset(self):
         # Print status and close port on exit
         self.paused = True
-        print "Serial:", self.ser.inWaiting()
-    def ready(self):
         # Make extra super sure we reset the Arduino
         while (self.ser.inWaiting()):
             self.ser.write("Stop!x")
@@ -314,77 +307,63 @@ class serial_reader_thread(threading.Thread):
             self.ser.write("Stop!x")
             self.ser.flushInput()
             time.sleep(1)
-        time.sleep(1)
+        print "Serial:", self.ser.inWaiting()
+    def ready(self):
+        self.paused = False
         while (not self.ser.inWaiting()):
             self.ser.write("Begin!x")
             time.sleep(0.5)
-        self.paused = False
-    def run(self):
-        # Run until turned off
-        while 1:
-            if self.on():
-                # Read bytes in chunks of meaningful size
-                if self.ser.inWaiting() > 3:
-                    b = bytearray(3)
-                    self.ser.readinto(b)
-                    # Don't read and write data simultaneously; acquire lock
-                    dataLock.acquire()
-                    data.append(b)
-                    dataLock.release()
-
-# A class that calculates data on an isolated thread
-class calculator_thread(threading.Thread):
-    # Cookie-cutter __init__ function; nothing special
-    def __init__(self, threadID):
-        threading.Thread.__init__(self)
-        self.threadID = threadID
-        self.paused = False
-    def on(self):
-        return not self.paused
-    def reset(self):
-        self.paused = True
-    def ready(self):
-        self.paused = False
     def run(self):
         self.pos = 0
-        # This t is a global variable shared with display
-        while 1:
-            if self.on():
-                dataLock.acquire()
-                packages = len(data)
-                dataLock.release()
-                if packages > channels:
-                    for i in range(channels):
-                        # Don't read and write data simultaneously; acquire lock
-                        dataLock.acquire()
-                        bytes = data.popleft()
-                        dataLock.release()
-                        # construct y value
-                        height = (bytes[0] << 16) + (bytes[1] << 8) + bytes[2]
+        self.channel = 0
+        self.ser = serial.Serial(4, baudrate=57600, timeout=1)
+        self.ser.flushInput()
+        self.reset()
+        self.ready()
+        # Run until turned off
+        while self.on:
+            # Read and execute control commands from main process
+            if not self.cmds.empty():
+                cmd = self.cmds.get()
+                if cmd == '+':
+                    self.ready()
+                if cmd == '-':
+                    self.reset()
+                if cmd == "Exit!":
+                    self.on = False
+            # While on, continuously empty serial port
+            if not self.paused:
+                # Read bytes in chunks of meaningful size
+                if self.ser.inWaiting() > 3:
+                    bytes = bytearray(3)
+                    self.ser.readinto(bytes)
+                    height = (bytes[0] << 16) + (bytes[1] << 8) + bytes[2]
                         
-                        # convert to signed long
-                        if (height >= 0x800000): # = 2^23
-                            height = height - 0x1000000 # = 2^24 
-                        
-                        height = np.long(height)
-                        sampleLock.acquire()
-                        samples[self.pos,i] = height
-                        sampleLock.release()
-
-                    self.pos += 1
-                    if (self.pos == BUF_LEN):
-                        self.pos = 0
+                    # convert to signed long
+                    if (height >= 0x800000): # = 2^23
+                        height = height - 0x1000000 # = 2^24 
+                    
+                    height = np.long(height)
+                    samples = np.ctypeslib.as_array(self.samples.get_obj())
+                    samples = samples.reshape(self. BUF_LEN, self.channels)
+                    samples[self.pos, self.channel] = height
+                    
+                    # Update array indices
+                    self.channel += 1
+                    if self.channel == self.channels:
+                        self.channel = 0
+                        self.pos += 1
+                        if self.pos == self.BUF_LEN:
+                            self.pos = 0
         
 # global graph variables
 # array to read in 4 bytes at a time
 
-# Lock Access to data
-dataLock = threading.Lock()
-sampleLock = threading.Lock()
-# Make sure to make a new thread each time program is turned on!
-# Once a thread finishes running, it cannot be restarted.
-# Each new thread will reopen the serial port and close it upon completion.
+if __name__ == '__main__':
+    # Make sure to make a new thread each time program is turned on!
+    # Once a thread finishes running, it cannot be restarted.
+    # Each new thread will reopen the serial port and close it upon completion.
 
-app = wx.App(False)
-frame = MainFrame(None, wx.ID_ANY, "Sonic Oxen")
-app.MainLoop()
+    app = wx.App(False)
+    frame = MainFrame(None, wx.ID_ANY, "Sonic Oxen")
+    app.MainLoop()

@@ -177,7 +177,6 @@ class MainPanel(wx.Panel):
         data = deque()
         on = True
         self.loader = serial_reader_thread(1)
-        self.calc = calculator_thread(2)
         
         # Make a convenient zipped list for simultaneous access
         self.items = zip(figs, lines, axes, backgrounds)
@@ -225,7 +224,6 @@ class MainPanel(wx.Panel):
         
         # Begin timer and helper threads
         self.loader.start()
-        self.calc.start()
         
         self.redraw_timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.on_redraw_timer, self.redraw_timer)        
@@ -268,14 +266,7 @@ class MainPanel(wx.Panel):
             self.redraw_timer.Start(10)
             
     def on_reset_button(self, event):
-            self.calc.reset()
             self.loader.reset()
-            global data
-            dataLock.acquire()
-            print "Data:", len(data)
-            data = deque()
-            dataLock.release()
-            self.calc.ready()
             self.loader.ready()
     
     def on_update_pause_button(self, event):
@@ -289,6 +280,8 @@ class serial_reader_thread(threading.Thread):
         threading.Thread.__init__(self)
         self.threadID = threadID
         self.paused = False
+        self.pos = 0
+        self.channel = 0
         self.ser = serial.Serial(4, baudrate=57600, timeout=1)
         self.ser.flushInput()
         self.ready()
@@ -325,61 +318,28 @@ class serial_reader_thread(threading.Thread):
             if self.on():
                 # Read bytes in chunks of meaningful size
                 if self.ser.inWaiting() > 3:
-                    b = bytearray(3)
-                    self.ser.readinto(b)
-                    # Don't read and write data simultaneously; acquire lock
-                    dataLock.acquire()
-                    data.append(b)
-                    dataLock.release()
-
-# A class that calculates data on an isolated thread
-class calculator_thread(threading.Thread):
-    # Cookie-cutter __init__ function; nothing special
-    def __init__(self, threadID):
-        threading.Thread.__init__(self)
-        self.threadID = threadID
-        self.paused = False
-    def on(self):
-        return not self.paused
-    def reset(self):
-        self.paused = True
-    def ready(self):
-        self.paused = False
-    def run(self):
-        self.pos = 0
-        # This t is a global variable shared with display
-        while 1:
-            if self.on():
-                dataLock.acquire()
-                packages = len(data)
-                dataLock.release()
-                if packages > channels:
-                    for i in range(channels):
-                        # Don't read and write data simultaneously; acquire lock
-                        dataLock.acquire()
-                        bytes = data.popleft()
-                        dataLock.release()
-                        # construct y value
-                        height = (bytes[0] << 16) + (bytes[1] << 8) + bytes[2]
+                    bytes = bytearray(3)
+                    self.ser.readinto(bytes)
+                    height = (bytes[0] << 16) + (bytes[1] << 8) + bytes[2]
                         
-                        # convert to signed long
-                        if (height >= 0x800000): # = 2^23
-                            height = height - 0x1000000 # = 2^24 
-                        
-                        height = np.long(height)
-                        sampleLock.acquire()
-                        samples[self.pos,i] = height
-                        sampleLock.release()
-
-                    self.pos += 1
-                    if (self.pos == BUF_LEN):
-                        self.pos = 0
-        
-# global graph variables
-# array to read in 4 bytes at a time
+                    # convert to signed long
+                    if (height >= 0x800000): # = 2^23
+                        height = height - 0x1000000 # = 2^24 
+                    
+                    height = np.long(height)
+                    sampleLock.acquire()
+                    samples[self.pos, self.channel] = height
+                    sampleLock.release()
+                    
+                    # Update array indices
+                    self.channel += 1
+                    if self.channel == channels:
+                        self.channel = 0
+                        self.pos += 1
+                        if self.pos == BUF_LEN:
+                            self.pos = 0
 
 # Lock Access to data
-dataLock = threading.Lock()
 sampleLock = threading.Lock()
 # Make sure to make a new thread each time program is turned on!
 # Once a thread finishes running, it cannot be restarted.
