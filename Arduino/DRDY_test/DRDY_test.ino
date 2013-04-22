@@ -13,12 +13,13 @@ void setup() {
   SPI.begin(ss); // SCK, MOSI, SS to OUTPUT, SCK, MOSI to LOW, SS to HIGH
   SPI.setDataMode(ss, SPI_MODE1); 
   SPI.setBitOrder(ss, MSBFIRST);
-  SPI.setClockDivider(ss, 42);
+  SPI.setClockDivider(ss, 21);
   
   digitalWrite(ss, HIGH);
   
   // Write START HIGH
   digitalWrite(START, HIGH);
+  delay(5);
   
   // Reset
   SPI.transfer(ss, 6);
