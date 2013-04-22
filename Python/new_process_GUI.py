@@ -281,9 +281,9 @@ class MainPanel(wx.Panel):
 # A class that calculates data on an isolated thread
 class calculator_thread(mp.Process):
     # Cookie-cutter __init__ function; nothing special
-    def __init__(self, samples, BUF_LEN, channels, cmds):
+    def __init__(self, raw_samples, BUF_LEN, channels, cmds):
         mp.Process.__init__(self)
-        self.samples = samples
+        self.raw_samples = raw_samples
         self.channels = channels
         self.BUF_LEN = BUF_LEN
         self.cmds = cmds
@@ -316,6 +316,10 @@ class calculator_thread(mp.Process):
     def run(self):
         self.pos = 0
         self.channel = 0
+        
+        samples = np.ctypeslib.as_array(self.raw_samples.get_obj())
+        samples = samples.reshape(self.BUF_LEN, self.channels)
+        
         self.ser = serial.Serial(4, baudrate=57600, timeout=1)
         self.ser.flushInput()
         self.reset()
@@ -327,10 +331,12 @@ class calculator_thread(mp.Process):
                 cmd = self.cmds.get()
                 if cmd == '+':
                     self.ready()
-                if cmd == '-':
+                elif cmd == '-':
                     self.reset()
-                if cmd == "Exit!":
+                elif cmd == "Exit!":
                     self.on = False
+                else:
+                    print cmd
             # While on, continuously empty serial port
             if not self.paused:
                 # Read bytes in chunks of meaningful size
@@ -344,8 +350,6 @@ class calculator_thread(mp.Process):
                         height = height - 0x1000000 # = 2^24 
                     
                     height = np.long(height)
-                    samples = np.ctypeslib.as_array(self.samples.get_obj())
-                    samples = samples.reshape(self. BUF_LEN, self.channels)
                     samples[self.pos, self.channel] = height
                     
                     # Update array indices

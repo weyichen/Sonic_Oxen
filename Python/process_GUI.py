@@ -330,10 +330,12 @@ class serial_reader_thread(mp.Process):
                 cmd = self.cmds.get()
                 if cmd == '+':
                     self.ready()
-                if cmd == '-':
+                elif cmd == '-':
                     self.reset()
-                if cmd == "Exit!":
+                elif cmd == "Exit!":
                     self.on = False
+                else:
+                    print cmd
             # While on, continuously empty serial port
             if not self.paused:
                 # Read bytes in chunks of meaningful size
@@ -345,10 +347,10 @@ class serial_reader_thread(mp.Process):
 # A class that calculates data on an isolated thread
 class calculator_thread(mp.Process):
     # Cookie-cutter __init__ function; nothing special
-    def __init__(self, data, samples, BUF_LEN, channels, cmds):
+    def __init__(self, data, raw_samples, BUF_LEN, channels, cmds):
         mp.Process.__init__(self)
         self.data = data
-        self.samples = samples
+        self.raw_samples = raw_samples
         self.channels = channels
         self.BUF_LEN = BUF_LEN
         self.cmds = cmds
@@ -360,15 +362,17 @@ class calculator_thread(mp.Process):
         self.paused = False
     def run(self):
         self.pos = 0
+        samples = np.ctypeslib.as_array(self.raw_samples.get_obj())
+        samples = samples.reshape(self.BUF_LEN, self.channels)
         # This t is a global variable shared with display
         while self.on:
             if not self.cmds.empty():
                 cmd = self.cmds.get()
                 if cmd == '+':
                     self.ready()
-                if cmd == '-':
+                elif cmd == '-':
                     self.reset()
-                if cmd == "Exit!":
+                elif cmd == "Exit!":
                     self.on = False
                 else:
                     print cmd
@@ -383,8 +387,6 @@ class calculator_thread(mp.Process):
                         height = height - 0x1000000 # = 2^24 
                     
                     height = np.long(height)
-                    samples = np.ctypeslib.as_array(self.samples.get_obj())
-                    samples = samples.reshape(self. BUF_LEN, self.channels)
                     samples[self.pos, i] = height
 
                 self.pos += 1
