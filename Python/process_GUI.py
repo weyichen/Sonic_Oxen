@@ -120,7 +120,7 @@ class MainPanel(wx.Panel):
         FRAME_LEN = 0.1 * BUF_LEN
         timestep = 1
         period = BUF_LEN * timestep
-        height = 2000000
+        height = 5
         channels = 12
         dpi = 100
         g_width = 3.2
@@ -261,6 +261,7 @@ class MainPanel(wx.Panel):
                 fig.canvas.restore_region(background)
                 s = samples[:,j]
                 y = lfilter(b, a, s)
+                y = 3.3 * y / 0x800000
                 line.set_ydata(y[FRAME_LEN:-FRAME_LEN])
                 ax.draw_artist(line)
                 fig.canvas.blit(ax.bbox)
