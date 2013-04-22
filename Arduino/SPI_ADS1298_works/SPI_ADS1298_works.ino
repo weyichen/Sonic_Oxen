@@ -20,13 +20,13 @@ void read_regs() {
   SPI.transfer(ss, 25, SPI_CONTINUE); // RREG 26 registers  
   for (int i=0; i<26; i++) regs[i] = SPI.transfer(ss, 0, SPI_CONTINUE);
   digitalWrite(ss, HIGH);
-  for (int i=0; i<26; i++) Serial.println(regs[i]);
+  for (int i=0; i<26; i++) Serial1.println(regs[i]);
 }
 
 void setup() {
   // put your setup code here, to run once:
   
-  Serial.begin(57600);
+  Serial1.begin(57600);
   pinMode(START, OUTPUT);
   pinMode(PDWN, OUTPUT);
   pinMode(DRDY, INPUT);
@@ -66,17 +66,36 @@ void setup() {
   SPI.transfer(ss, 134, SPI_CONTINUE); // set in HR Mode and DR = f /1024 (x86)
   SPI.transfer(ss, 0); // set CONFIG2 to 0
   
-  // Set All Channels to Input Short (1)
-  SPI.transfer(ss, 69, SPI_CONTINUE); // start at register 5
-  SPI.transfer(ss, 7, SPI_CONTINUE); // # write 8 registers
-  for (int i=0; i<8; i++) SPI.transfer(ss, 1, SPI_CONTINUE);
-  digitalWrite(ss, HIGH);
+//  // Set All Channels to Input Short (1)
+//  SPI.transfer(ss, 69, SPI_CONTINUE); // start at register 5
+//  SPI.transfer(ss, 7, SPI_CONTINUE); // # write 8 registers
+//  for (int i=0; i<8; i++) SPI.transfer(ss, 1, SPI_CONTINUE);
+//  digitalWrite(ss, HIGH);
   
-  Serial.println("NEW VALUES");
+  Serial1.println("NEW VALUES");
   // Read registers again
   read_regs();
   
-  // Set START HIGH
+  // Set test signals
+  // SDATAC
+//  SPI.transfer(ss, 17, SPI_CONTINUE);
+//  delayMicroseconds(1);
+//  digitalWrite(ss, HIGH);
+//  
+//  // WREG CONFIG2 0x10
+//  SPI.transfer(ss, 66, SPI_CONTINUE); // start at register 2
+//  SPI.transfer(ss, 0, SPI_CONTINUE);
+//  SPI.transfer(ss, 16);
+//  
+//  Serial1.println("Ready to test square wave");
+//  
+//  // Activate a 1mV x Vref/2.4) square-wave test signal on all channels (5)
+//  SPI.transfer(ss, 69, SPI_CONTINUE); // start at register 5
+//  SPI.transfer(ss, 7, SPI_CONTINUE); // # write 8 registers
+//  for (int i=0; i<8; i++) SPI.transfer(ss, 5, SPI_CONTINUE);
+//  digitalWrite(ss, HIGH);
+  
+    // Set START HIGH
   digitalWrite(START, HIGH);
   delay(5);
 
@@ -90,7 +109,7 @@ void setup() {
   byte d_out[27];
   for (int i=0; i<27; i++) d_out[i] = 0;
   
-  Serial.println("Ready to check noise");
+ Serial1.println("Ready to check noise");
   
   // Capture data and check noise
   // Look for DRDY and issue 24 + n * 24 SCLKs
@@ -130,36 +149,30 @@ void setup() {
       for (int i=0; i<27; i++) d_out[i] = SPI.transfer(ss, 0, SPI_CONTINUE);
       digitalWrite(ss, HIGH);
       
-      //for (int i=0; i<8; i++) Serial.println(d_out[i]);
-      //Serial.println("one iteration");
+      for (int i=0; i<27; i++) Serial1.write(d_out[i]);
+      //
       counter++;
     }
    }
+   
+    if (Serial1.available() >= 5) {
+       char cmd[6];
+       cmd[5] = '\0';
+       for (int i = 0; i < 5; i++)  {
+         cmd[i] = Serial1.read();
+       }
+       if (stop_code.equals(cmd)) {
+         wait = 1;
+       }
+       // Flush input if not appropriate
+       else {
+         Serial1.println();
+         while(Serial1.available()) {
+           Serial1.write(Serial1.read());
+         }
+       }
+     }
   }
-  
-  // Set test signals
-  // SDATAC
-  SPI.transfer(ss, 17, SPI_CONTINUE);
-  delayMicroseconds(1);
-  digitalWrite(ss, HIGH);
-  
-  // WREG CONFIG2 0x10
-  SPI.transfer(ss, 66, SPI_CONTINUE); // start at register 2
-  SPI.transfer(ss, 0, SPI_CONTINUE);
-  SPI.transfer(ss, 16);
-  
-  Serial.println("Ready to test square wave");
-  
-  // Activate a 1mV x Vref/2.4) square-wave test signal on all channels (5)
-  SPI.transfer(ss, 69, SPI_CONTINUE); // start at register 5
-  SPI.transfer(ss, 7, SPI_CONTINUE); // # write 8 registers
-  for (int i=0; i<8; i++) SPI.transfer(ss, 5, SPI_CONTINUE);
-  digitalWrite(ss, HIGH);
-  
-  // RDATAC
-  SPI.transfer(ss, 16, SPI_CONTINUE);
-  delayMicroseconds(1);
-  digitalWrite(ss, HIGH);
   
   // Capture Data and Test Signal
   // Look for DRDY and issue 24 + n * 24 SCLKs

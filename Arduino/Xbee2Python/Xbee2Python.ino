@@ -1,13 +1,13 @@
 byte data;
 
 void setup() {
- Serial.begin(57600);
+ Serial1.begin(57600);
 }
 
 void loop() {
-  if (Serial.available()) {
+  if (Serial1.available()) {
     
-    data = Serial.read();
-    Serial.write(data);
+    data = Serial1.read();
+    Serial1.write(data);
   }
 }

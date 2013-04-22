@@ -21,6 +21,8 @@ void setup() {
   digitalWrite(START, HIGH);
   delay(5);
   
+  //
+  
   // Reset
   SPI.transfer(ss, 6);
   delayMicroseconds(9);

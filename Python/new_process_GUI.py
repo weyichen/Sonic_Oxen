@@ -255,7 +255,8 @@ class MainPanel(wx.Panel):
             for j, (fig, line, ax, background) in enumerate(self.items):
                 fig.canvas.restore_region(background)
                 slice = samples[:,j]
-                y = lfilter(b, a, slice)
+                y = slice
+                #y = 3.3 * y / 0x800000
                 line.set_ydata(y[FRAME_LEN:-FRAME_LEN])
                 ax.draw_artist(line)
                 fig.canvas.blit(ax.bbox)
@@ -320,7 +321,7 @@ class calculator_thread(mp.Process):
         samples = np.ctypeslib.as_array(self.raw_samples.get_obj())
         samples = samples.reshape(self.BUF_LEN, self.channels)
         
-        self.ser = serial.Serial(4, baudrate=57600, timeout=1)
+        self.ser = serial.Serial(6, baudrate=57600, timeout=1)
         self.ser.flushInput()
         self.reset()
         self.ready()

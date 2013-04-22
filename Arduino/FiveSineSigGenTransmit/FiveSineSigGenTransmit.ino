@@ -15,6 +15,7 @@ void setup() {
  //pinMode(8, OUTPUT);
  
  Serial.println("HIGHAMP");
+ Serial1.println("hi");
 }
 
 void loop() {
@@ -56,6 +57,12 @@ void loop() {
  
  byte byte1, byte2, byte3, byte4;
  
+ byte1 = 192;
+ byte2 = 0;
+ byte3 = 0;
+ Serial1.write(byte1);
+ Serial1.write(byte2);
+ Serial1.write(byte3);
  for (int i=0; i<12; i++){
   byte1 = byte(data[i] >> 16 & 255);
   byte2 = byte((data[i] >> 8) & 255);
