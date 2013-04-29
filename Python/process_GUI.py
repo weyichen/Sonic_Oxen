@@ -23,13 +23,16 @@ import ctypes
 import multiprocessing as mp
 from scipy.signal import butter, lfilter
 
+# Initialize dsp filter
+filter_on = False
 fs = 500
 nyq = 0.5 * fs
 lowcut = 0.5
 highcut = 50
 low = lowcut / nyq
 high = highcut / nyq
-b, a = butter(3, [low, high], btype='band')
+order = 3
+b, a = butter(order, [low, high], btype='band')
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, ID, title):
@@ -120,8 +123,8 @@ class MainPanel(wx.Panel):
         FRAME_LEN = 0.1 * BUF_LEN
         timestep = 1
         period = BUF_LEN * timestep
-        height = 5
-        channels = 12
+        height = 2000000
+        channels = 8
         dpi = 100
         g_width = 3.2
         g_length = 1.8
@@ -148,16 +151,25 @@ class MainPanel(wx.Panel):
         
         # create a 3 by 4 grid of ECG lead graphs
         graphGrid = wx.GridBagSizer(hgap=5, vgap=10)
+        
+        # Create a custom label formatter for y-axis labels
+        label_formatter = matplotlib.ticker.FuncFormatter(self.rescale_voltage_labels)
+        
+        # Create titles
+        titles = ["Limb 1 (inv)", "Limb 2", "Precordial 1", "Precordial 2", "Precordial 3", \
+                "Precordial 4", "Precordial 5", "Precordial 6"]
+        
         # create all plots and place them in the graph grid
         for i in range (channels):
             # create label for graph and add it to grid
-            label = wx.StaticText(self, label="Lead "+str(i+1))
+            label = wx.StaticText(self, label=titles[i])
             graphGrid.Add(label, pos=((i*2)%6, i/3))
         
             # initialize graph figure and add it to grid
             grafig = Figure((g_width, g_length), dpi) 
             axis = grafig.add_subplot(111)
             axis.set_axis_bgcolor('black')
+            axis.get_yaxis().set_major_formatter(label_formatter)
             y = samples[:,i]
             line = axis.plot(times[:-2*FRAME_LEN], y[FRAME_LEN:-FRAME_LEN], styles[i], animated=True)
             axis.set_ylim(-height, height)
@@ -240,6 +252,9 @@ class MainPanel(wx.Panel):
         self.Bind(wx.EVT_TIMER, self.update_time, self.t_timer)
         self.t_timer.Start(10000)
         time.clock()
+        
+    def rescale_voltage_labels(self, x, p):
+        return "%.1f" % (x * 3.3 / 0x800000)
     
     def exit(self):
         self.paused = True
@@ -261,7 +276,6 @@ class MainPanel(wx.Panel):
                 fig.canvas.restore_region(background)
                 s = samples[:,j]
                 y = lfilter(b, a, s)
-                y = 3.3 * y / 0x800000
                 line.set_ydata(y[FRAME_LEN:-FRAME_LEN])
                 ax.draw_artist(line)
                 fig.canvas.blit(ax.bbox)

@@ -23,13 +23,16 @@ import ctypes
 import multiprocessing as mp
 from scipy.signal import butter, lfilter
 
-fs = 500
+# Initialize dsp filter
+filter_on = True
+fs = 150
 nyq = 0.5 * fs
 lowcut = 0.5
 highcut = 50
 low = lowcut / nyq
 high = highcut / nyq
-b, a = butter(3, [low, high], btype='band')
+order = 3
+b, a = butter(order, [low, high], btype='band')
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, ID, title):
@@ -113,18 +116,21 @@ class MainPanel(wx.Panel):
         # "interactive mode" off
         # if on, figure is redrawn every time it is updated, such as setting data in the extend() method
         plt.ioff()
-
+        
         # graph figure parameters
         global BUF_LEN, FRAME_LEN, timestep, period, height, channels
-        BUF_LEN = 300
-        FRAME_LEN = 0.1 * BUF_LEN
+        BUF_LEN = 100
+        FRAME_LEN = BUF_LEN * 0.2
         timestep = 1
         period = BUF_LEN * timestep
-        height = 2000000
-        channels = 12
+        height = 10000000
+        channels = 8
         dpi = 100
         g_width = 3.2
         g_length = 1.8
+        
+        global Vpp
+        Vpp = np.zeros(channels + 1)
 
         styles = ['r-', 'g-', 'y-', 'm-', 'r-', 'r-', 'g-', 'y-', 'm-', 'r-', 'r-', 'g-']
         
@@ -148,17 +154,27 @@ class MainPanel(wx.Panel):
         
         # create a 3 by 4 grid of ECG lead graphs
         graphGrid = wx.GridBagSizer(hgap=5, vgap=10)
+        # Create a custom label formatter for y-axis labels
+        y_label_formatter = matplotlib.ticker.FuncFormatter(self.rescale_voltage_labels)
+        x_label_formatter = matplotlib.ticker.FuncFormatter(self.rescale_time_labels)
+        
+        # Create titles
+        titles = ["Limb 1", "Limb 2", "Limb 3", "Precordial 1", "Precordial 2", "Precordial 3", \
+                "Precordial 4", "Precordial 5", "Precordial 6"]
+        
         # create all plots and place them in the graph grid
-        for i in range (channels):
+        for i in range (channels + 1):
             # create label for graph and add it to grid
-            label = wx.StaticText(self, label="Lead "+str(i+1))
+            label = wx.StaticText(self, label=titles[i])
             graphGrid.Add(label, pos=((i*2)%6, i/3))
         
             # initialize graph figure and add it to grid
             grafig = Figure((g_width, g_length), dpi) 
             axis = grafig.add_subplot(111)
             axis.set_axis_bgcolor('black')
-            y = samples[:,i]
+            axis.get_yaxis().set_major_formatter(y_label_formatter)
+            axis.get_xaxis().set_major_formatter(x_label_formatter)
+            y = samples[:,0]
             line = axis.plot(times[:-2*FRAME_LEN], y[FRAME_LEN:-FRAME_LEN], styles[i], animated=True)
             axis.set_ylim(-height, height)
             axis.set_xlim(-timestep, period - 2 * FRAME_LEN + timestep)
@@ -179,7 +195,9 @@ class MainPanel(wx.Panel):
         # Lock Access to data
         global calc_ctrl
         calc_ctrl = mp.Queue()
-        self.calc = calculator_thread(raw_samples, BUF_LEN, channels, calc_ctrl)
+        global sample_count
+        sample_count = mp.Value(ctypes.c_longlong, 0, lock = False)
+        self.calc = calculator_thread(raw_samples, BUF_LEN, channels, calc_ctrl, sample_count)
         
         # Make a convenient zipped list for simultaneous access
         self.items = zip(figs, lines, axes, backgrounds)
@@ -202,6 +220,10 @@ class MainPanel(wx.Panel):
         # add vitals information
         self.elapsed_lbl = wx.StaticText(self, label="Time elapsed: ")
         self.elapsed = wx.StaticText(self, label="00:00:00")
+        self.sampling_rate_lbl = wx.StaticText(self, label="Approximate Sampling Rate (Hz)")
+        self.sampling_rate = wx.StaticText(self, label="0")
+        self.Vpp_lbl = wx.StaticText(self, label="Peak to Peak Amplitudes")
+        self.Vpp = wx.StaticText(self, label="[]")
         #self.heartrate_lbl = wx.StaticText(self, label="Heart rate: ")
         #self.heartrate = wx.StaticText(self, label="1 bpm")
         
@@ -210,6 +232,10 @@ class MainPanel(wx.Panel):
         sideBar.Add(self.reset_button, pos=(1,0))
         sideBar.Add(self.elapsed_lbl, pos=(2,0))
         sideBar.Add(self.elapsed, pos=(3,0))
+        sideBar.Add(self.sampling_rate_lbl, pos=(4,0))
+        sideBar.Add(self.sampling_rate, pos=(5,0))
+        sideBar.Add(self.Vpp_lbl, pos=(6,0))
+        sideBar.Add(self.Vpp, pos=(7,0))
         #sideBar.Add(self.heartrate_lbl, pos=(3,0))
         #sideBar.Add(self.heartrate, pos=(4,0))
         
@@ -236,6 +262,12 @@ class MainPanel(wx.Panel):
         self.Bind(wx.EVT_TIMER, self.update_time, self.t_timer)
         self.t_timer.Start(10000)
         time.clock()
+        
+    def rescale_voltage_labels(self, x, p):
+        return "%.1f" % (x * 3000 / 0x800000)
+        
+    def rescale_time_labels(self, x, p):
+        return "%.1f" % (x / fs)
     
     def exit(self):
         self.paused = True
@@ -248,21 +280,32 @@ class MainPanel(wx.Panel):
         sec = str(int(elapsed_t % 60))
         l = ':'.join([hr,min,sec])
         self.elapsed.SetLabel(l)
+        self.sampling_rate.SetLabel(str(float(sample_count.value) / elapsed_t))
+        self.Vpp.SetLabel(str(Vpp * 3300 / 0x800000))
     
     def on_redraw_timer(self, event):
+        global Vpp
         if not self.paused:
             # get and update graph at each position in the grid
             for j, (fig, line, ax, background) in enumerate(self.items):
                 fig.canvas.restore_region(background)
-                slice = samples[:,j]
-                y = slice
-                #y = 3.3 * y / 0x800000
+                if (j == 0):
+                    slice = -1 * samples[:,j]
+                elif (j == 1):
+                    slice = samples[:,j]
+                elif (j == 2):
+                    slice = samples[:,0] + samples[:,1]
+                else:
+                    slice = samples[:, j - 1]
+                if filter_on:
+                    y = lfilter(b, a, slice)
+                else:
+                    y = slice
+                y -= np.mean(y)
+                Vpp[j] = np.ptp(y)
                 line.set_ydata(y[FRAME_LEN:-FRAME_LEN])
                 ax.draw_artist(line)
                 fig.canvas.blit(ax.bbox)
-                    
-        # Close serial port reader
-        on = False
     
     def on_pause_button(self, event):
         self.paused = not self.paused
@@ -282,12 +325,13 @@ class MainPanel(wx.Panel):
 # A class that calculates data on an isolated thread
 class calculator_thread(mp.Process):
     # Cookie-cutter __init__ function; nothing special
-    def __init__(self, raw_samples, BUF_LEN, channels, cmds):
+    def __init__(self, raw_samples, BUF_LEN, channels, cmds, sample_count):
         mp.Process.__init__(self)
         self.raw_samples = raw_samples
         self.channels = channels
         self.BUF_LEN = BUF_LEN
         self.cmds = cmds
+        self.sample_count = sample_count
         self.paused = False
         self.on = True
     def reset(self):
@@ -325,6 +369,8 @@ class calculator_thread(mp.Process):
         self.ser.flushInput()
         self.reset()
         self.ready()
+        ctrl_bytes = bytearray(3)
+        bytes = bytearray(3 * self.channels)
         # Run until turned off
         while self.on:
             # Read and execute control commands from main process
@@ -341,25 +387,30 @@ class calculator_thread(mp.Process):
             # While on, continuously empty serial port
             if not self.paused:
                 # Read bytes in chunks of meaningful size
-                if self.ser.inWaiting() > 3:
-                    bytes = bytearray(3)
-                    self.ser.readinto(bytes)
-                    height = (bytes[0] << 16) + (bytes[1] << 8) + bytes[2]
-                        
-                    # convert to signed long
-                    if (height >= 0x800000): # = 2^23
-                        height = height - 0x1000000 # = 2^24 
+                if self.ser.inWaiting() > 27:
+                    self.ser.readinto(ctrl_bytes)
                     
-                    height = np.long(height)
-                    samples[self.pos, self.channel] = height
-                    
-                    # Update array indices
-                    self.channel += 1
-                    if self.channel == self.channels:
-                        self.channel = 0
+                    if (ctrl_bytes[0] == 192 and ctrl_bytes[1] == 0 and ctrl_bytes[2] == 0):
+                        self.ser.readinto(bytes)
+                        for channel in range(self.channels):
+                            offset = 3 * channel
+                            height = (bytes[offset] << 16) + (bytes[offset + 1] << 8) + bytes[offset + 2]
+                                
+                            # convert to signed long
+                            if (height >= 0x800000): # = 2^23
+                                height = height - 0x1000000 # = 2^24
+                            
+                            height = np.long(height)
+                            samples[self.pos, channel] = height
+
                         self.pos += 1
+                        self.sample_count.value += 1
                         if self.pos == self.BUF_LEN:
                             self.pos = 0
+                            
+                    else:
+                        shift = bytearray(1)
+                        self.ser.readinto(shift)
         
 # global graph variables
 # array to read in 4 bytes at a time
